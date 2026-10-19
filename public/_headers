@@ -1,0 +1,11 @@
+# Cabeceras de seguridad (Netlify y Cloudflare Pages las aplican automáticamente)
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(self), microphone=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; frame-src https://www.tiktok.com https://www.instagram.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+/admin.html
+  X-Robots-Tag: noindex, nofollow
