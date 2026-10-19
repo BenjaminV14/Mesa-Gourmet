@@ -7,6 +7,7 @@ import { esc, safeUrl, initials } from '../utils/html.js';
 import { timeAgo } from '../utils/time.js';
 import { levelProgress, levelName, visitedLocalesCount, computeLogros, userReviews } from './gamification.js';
 import { logout } from './auth.js';
+import { canInstall } from '../services/pwa.js';
 
 const PRODUCTOS_FAVORITOS = [
     ['Pisco Sour', '🍸'], ['Café', '☕'], ['Ceviche', '🦐'], ['Sushi', '🍣'], ['Empanada', '🥟'],
@@ -97,6 +98,7 @@ export function renderPerfil() {
         <section class="profile-section">
             <div class="profile-section-title">⚙️ Cuenta y privacidad</div>
             <div class="settings-list">
+                <button class="settings-row" data-action="install-app" ${canInstall() ? '' : 'hidden'}>📲 Instalar la app en este dispositivo</button>
                 <button class="settings-row" data-action="edit-name">✏️ Cambiar mi nombre</button>
                 <button class="settings-row" data-action="download-data">📦 Descargar mis datos</button>
                 <button class="settings-row danger" data-action="delete-account">🗑️ Eliminar mi cuenta</button>

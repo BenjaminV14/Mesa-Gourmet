@@ -1,15 +1,17 @@
 // Punto de entrada de la app Mesa Gourmet
 import './style.css';
 import './app.css';
+import './desktop.css';
 import { state } from './state.js';
 import { initAuth } from './features/auth.js';
 import { setupNavigation, switchTab, updateHeader } from './features/navigation.js';
-import { refreshLocalDetail } from './features/detalle.js';
+import { refreshLocalDetail, hideLocalDetail } from './features/detalle.js';
 import { refreshResenas } from './features/resenas.js';
 import { setReviewPublishedHandler } from './features/review-form.js';
 import { showWelcomeIfNeeded } from './features/perfil.js';
 import { renderResults } from './features/inicio.js';
 import { track } from './services/analytics.js';
+import { setupPwa } from './services/pwa.js';
 
 function requestLocation() {
     if (!navigator.geolocation) return;
@@ -52,6 +54,14 @@ setReviewPublishedHandler(() => {
 });
 
 initAuth({ onEnter: () => enterApp() });
+setupPwa();
+
+// Escape cierra la ficha del local (útil en computador)
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('detailView').classList.contains('hidden') && !document.querySelector('.sheet-overlay, #reviewModal')) {
+        hideLocalDetail();
+    }
+});
 track('app_abierta');
 
 // Sesión guardada: entra directo sin pedir login otra vez
