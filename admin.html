@@ -47,20 +47,10 @@
         }
         .menu-item-row {
             display: grid;
-            grid-template-columns: 2fr 1.5fr 1fr auto;
+            grid-template-columns: 2fr 1fr auto;
             gap: 10px;
             margin-bottom: 10px;
             align-items: center;
-        }
-        @media (max-width: 600px) {
-            .menu-item-row {
-                grid-template-columns: 1fr 1fr auto;
-                padding-bottom: 12px;
-                border-bottom: 1px solid rgba(0,0,0,0.06);
-            }
-            .menu-item-row input:first-child {
-                grid-column: 1 / -1;
-            }
         }
         .menu-item-row input {
             padding: 10px;

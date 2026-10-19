@@ -27,93 +27,6 @@ let baulCandidates = [];
 let baulCurrentIndex = 0;
 let baulCurrentType = 'food';
 
-// Evita registrar dos veces los listeners del buscador al volver a iniciar sesión
-let searchListenersReady = false;
-
-// =================== HELPERS ===================
-
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-// Minúsculas y sin tildes, para comparar búsquedas
-function normalizeText(text) {
-    return String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
-const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-
-function parseHorario(rango) {
-    const match = /(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/.exec(rango || '');
-    if (!match) return null;
-    const start = Number(match[1]) * 60 + Number(match[2]);
-    let end     = Number(match[3]) * 60 + Number(match[4]);
-    if (end <= start) end += 24 * 60; // cierra después de medianoche
-    return { start, end };
-}
-
-// Abierto/Cerrado calculado con el horario de hoy (y el de ayer si cerraba después de medianoche)
-function isLocalOpen(local, date = new Date()) {
-    if (!local.horariosSemana) return !!local.abierto;
-    const minutes  = date.getHours() * 60 + date.getMinutes();
-    const hoy      = parseHorario(local.horariosSemana[DIAS_SEMANA[date.getDay()]]);
-    const ayer     = parseHorario(local.horariosSemana[DIAS_SEMANA[(date.getDay() + 6) % 7]]);
-    if (hoy && minutes >= hoy.start && minutes < hoy.end) return true;
-    if (ayer && minutes + 24 * 60 < ayer.end) return true;
-    return false;
-}
-
-function timeAgo(fecha) {
-    if (!fecha) return '';
-    const date = new Date(fecha.length === 10 ? `${fecha}T12:00:00` : fecha);
-    const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (days <= 0)  return 'Hoy';
-    if (days === 1) return 'hace 1 día';
-    if (days < 30)  return `hace ${days} días`;
-    const months = Math.floor(days / 30);
-    if (months < 12) return months === 1 ? 'hace 1 mes' : `hace ${months} meses`;
-    const years = Math.floor(days / 365);
-    return years === 1 ? 'hace 1 año' : `hace ${years} años`;
-}
-
-// Segundos que le quedan al sorteo flash activo (0 si no hay uno en curso)
-function getSorteoTimeLeft(local, now = Date.now()) {
-    const s = local.sorteoFlash;
-    if (!s || now < (s.inicioTimestamp || 0)) return 0;
-    return Math.max(0, Math.ceil((s.expiraTimestamp - now) / 1000));
-}
-
-// Identificador del usuario actual para los "me gusta"
-function currentUserKey() {
-    if (isGuest || !window.currentUser) return null;
-    return window.currentUser.email || window.currentUser.name;
-}
-
-function userLikedReview(review) {
-    const key = currentUserKey();
-    return !!key && Array.isArray(review.likedBy) && review.likedBy.includes(key);
-}
-
-// Agrega o quita el "me gusta" del usuario actual. Devuelve true si quedó marcado.
-function toggleReviewLike(review) {
-    const key = currentUserKey();
-    if (!Array.isArray(review.likedBy)) review.likedBy = [];
-    const idx = review.likedBy.indexOf(key);
-    if (idx > -1) {
-        review.likedBy.splice(idx, 1);
-        review.likes = Math.max(0, review.likes - 1);
-        return false;
-    }
-    review.likedBy.push(key);
-    review.likes++;
-    return true;
-}
-
 // =================== LEVEL SYSTEM (REVIEW-BASED) ===================
 
 function getUserReviewCount() {
@@ -453,7 +366,7 @@ function setupNavigation() {
         tab.parentNode.replaceChild(newTab, tab);
         newTab.addEventListener('click', function() {
             const tabName = this.dataset.tab;
-            if (isGuest && (tabName === 'misiones' || tabName === 'reseñas' || tabName === 'perfil')) {
+            if (isGuest && (tabName === 'misiones' || tabName === 'reseñas')) {
                 if (checkGuestAccess()) return;
             }
             if (tabName) switchTab(tabName);
@@ -462,9 +375,6 @@ function setupNavigation() {
 
     const searchInput = document.getElementById('searchInput');
     const searchPanel = document.getElementById('searchOptionsPanel');
-
-    if (searchListenersReady) return;
-    searchListenersReady = true;
 
     searchInput.addEventListener('focus', () => searchPanel.classList.remove('hidden'));
 
@@ -558,39 +468,16 @@ window.toggleDietary = function(type) {
     filterLocales(document.getElementById('searchInput').value.toLowerCase());
 };
 
-// Términos de búsqueda que se resuelven con los puntajes dietéticos del local
-const DIETARY_SEARCH = { vegano: 'vegano', vegetariano: 'vegetariano', celiaco: 'sinGluten', 'sin gluten': 'sinGluten', 'sin lactosa': 'sinLactosa' };
-
-// "restaurantes" -> ["restaurantes", "restaurante", "restaurant"]
-function searchVariants(term) {
-    const variants = [term];
-    if (term.length > 4 && term.endsWith('es')) variants.push(term.slice(0, -2));
-    if (term.length > 3 && term.endsWith('s'))  variants.push(term.slice(0, -1));
-    if (term.endsWith('e')) variants.push(term.slice(0, -1));
-    variants.slice(1).forEach(v => { if (v.endsWith('e')) variants.push(v.slice(0, -1)); });
-    return [...new Set(variants)].filter(v => v.length >= 3);
-}
-
-function localMatchesQuery(local, query) {
-    const term = normalizeText(query).trim();
-    if (!term) return true;
-
-    const dietKey = DIETARY_SEARCH[term];
-    if (dietKey && (local[dietKey] || 0) >= 3) return true;
-
-    const haystack = [
-        local.nombre,
-        local.tipo,
-        ...(local.caracteristicas || []),
-        ...(local.menu || []).flatMap(m => [m.nombre, m.categoria])
-    ].map(normalizeText);
-
-    return searchVariants(term).some(v => haystack.some(text => text.includes(v)));
-}
-
 function filterLocales(query) {
     filteredLocales = window.locales.filter(local => {
-        const matchesQuery = localMatchesQuery(local, query);
+        let matchesQuery = true;
+        if (query) {
+            const queryLower = query.toLowerCase();
+            matchesQuery = local.nombre.toLowerCase().includes(queryLower) ||
+                local.tipo.toLowerCase().includes(queryLower) ||
+                local.caracteristicas.some(c => c.toLowerCase().includes(queryLower)) ||
+                (local.menu && local.menu.some(m => m.nombre.toLowerCase().includes(queryLower)));
+        }
 
         let matchesDietary = true;
         if (dietaryPreferences.vegano     && (local.vegano    || 0) < 3) matchesDietary = false;
@@ -626,16 +513,9 @@ function startFlashTimer() {
         const now     = Date.now();
         let changed   = false;
         window.locales.forEach(l => {
-            const s = l.sorteoFlash;
-            if (s && now > s.expiraTimestamp) {
-                // Programa la siguiente ronda en vez de borrar el sorteo
-                const duracion        = s.duracionMs || 3 * 60 * 1000;
-                const pausa           = s.pausaMs    || 10 * 60 * 1000;
-                s.inicioTimestamp     = now + pausa;
-                s.expiraTimestamp     = s.inicioTimestamp + duracion;
+            if (l.sorteoFlash && now > l.sorteoFlash.expiraTimestamp) {
+                delete l.sorteoFlash;
                 changed = true;
-            } else if (s && s.inicioTimestamp && now >= s.inicioTimestamp && now - s.inicioTimestamp < 1000) {
-                changed = true; // acaba de empezar una ronda nueva
             }
         });
         if (changed) {
@@ -646,7 +526,7 @@ function startFlashTimer() {
         const timerEl = document.getElementById('detailSorteoTimer');
         if (timerEl && currentLocalDetail) {
             if (currentLocalDetail.sorteoFlash) {
-                const timeLeft = getSorteoTimeLeft(currentLocalDetail, now);
+                const timeLeft = Math.max(0, Math.ceil((currentLocalDetail.sorteoFlash.expiraTimestamp - now) / 1000));
                 if (timeLeft > 0) {
                     timerEl.textContent = `Tiempo restante: ${timeLeft}s`;
                 } else {
@@ -683,20 +563,17 @@ function renderInicio(full = true) {
     if (!container) return;
 
     if (filteredLocales.length === 0) {
-        const query = document.getElementById('searchInput').value.trim();
-        const msg   = query
-            ? `Todavía no hay locales que coincidan con "${escapeHtml(query)}".`
-            : 'No se encontraron locales con las preferencias activas.';
-        container.innerHTML = `<p style="text-align:center; color:var(--text-secondary); margin-top:20px;">${msg}</p>`;
+        container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); margin-top:20px;">No se encontraron locales con las preferencias activas.</p>';
         return;
     }
 
-    const hoyNombre  = DIAS_SEMANA[new Date().getDay()];
+    const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const hoyNombre  = diasSemana[new Date().getDay()];
 
     container.innerHTML = filteredLocales.map(local => {
         const rating     = local.notaMG || 8.0;
         const fillPercent = (rating / 10) * 100;
-        const isOpen     = isLocalOpen(local);
+        const isOpen     = local.abierto;
         const horarioHoy = local.horariosSemana[hoyNombre] || "Cerrado";
         const dist       = getDistanceKm(userLocation.lat, userLocation.lng, local.lat, local.lng);
         const isFav      = !isGuest && window.currentUser.favorites && window.currentUser.favorites.includes(local.id);
@@ -704,7 +581,7 @@ function renderInicio(full = true) {
 
         let sorteoHtml = '';
         if (local.sorteoFlash) {
-            const timeLeft = getSorteoTimeLeft(local);
+            const timeLeft = Math.max(0, Math.ceil((local.sorteoFlash.expiraTimestamp - Date.now()) / 1000));
             if (timeLeft > 0) {
                 sorteoHtml = `
                     <div class="blink-gift" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; padding: 4px 8px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; margin-top: 4px; display: inline-flex; align-items: center; gap: 4px;">
@@ -880,7 +757,7 @@ function renderTabInfo(local) {
 
     let eventosHtml = '';
     if (local.sorteoFlash) {
-        const timeLeft = getSorteoTimeLeft(local);
+        const timeLeft = Math.max(0, Math.ceil((local.sorteoFlash.expiraTimestamp - Date.now()) / 1000));
         if (timeLeft > 0) {
             eventosHtml = `
                 <h3 class="section-title" style="margin-top:20px;">Eventos y Sorteos</h3>
@@ -967,7 +844,7 @@ function renderTabInfo(local) {
 // =================== TAB MENÚ ===================
 
 function renderTabMenu(local) {
-    const sortedMenu = local.menu ? local.menu.filter(m => m.nombre).sort((a,b) => (b.likes || 0) - (a.likes || 0)) : [];
+    const sortedMenu = local.menu ? [...local.menu].sort((a,b) => (b.likes || 0) - (a.likes || 0)) : [];
 
     return `
         <h3 class="section-title">Nuestra Carta (Ordenada por Popularidad 🔥)</h3>
@@ -981,7 +858,7 @@ function renderTabMenu(local) {
                     <img src="${item.imagen}" style="width: 70px; height: 70px; border-radius: 12px; object-fit: cover; margin-right: 15px; ${isTop1 ? 'border: 2px solid var(--mesa-gold);' : ''}">
                     <div style="flex:1;">
                         <h4 style="font-weight: 600; font-size:1rem; margin-bottom:3px; color:var(--text-primary);">${item.nombre}</h4>
-                        <span style="font-size:0.75rem; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:6px; color:var(--text-secondary);">${escapeHtml(item.categoria || 'Otros')}</span>
+                        <span style="font-size:0.75rem; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:6px; color:var(--text-secondary);">${item.categoria}</span>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
                             <span style="color:var(--mesa-gold); font-weight:bold;">$${item.precio.toLocaleString('es-CL')}</span>
                             <span style="font-size: 0.85rem; background:rgba(139,38,53,0.1); color:var(--mesa-red); padding:2px 8px; border-radius:10px; font-weight:bold;">❤️ ${item.likes || 0}</span>
@@ -1019,8 +896,8 @@ function renderTabResenas(local) {
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div class="avatar" style="width:30px; height:30px; font-size:0.75rem;">${r.usuario.avatar}</div>
                     <div style="flex: 1;">
-                        <div style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">${escapeHtml(r.usuario.nombre)}</div>
-                        <div style="font-size:0.7rem; color:var(--text-secondary);">${timeAgo(r.fecha)}</div>
+                        <div style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">${r.usuario.nombre}</div>
+                        <div style="font-size:0.7rem; color:var(--text-secondary);">${r.tiempoTranscurrido}</div>
                     </div>
                 </div>
                 ${r.fotoComida ? `<img src="${r.fotoComida}" style="width:100%; height:140px; object-fit:cover; border-radius:12px; margin-bottom:5px;">` : ''}
@@ -1028,8 +905,8 @@ function renderTabResenas(local) {
                     <span>🍽️ Comida: <span style="color:var(--mesa-gold);">${r.notaComida.toFixed(1)}</span></span>
                     <span>🤵 Servicio: <span style="color:var(--mesa-gold);">${r.notaServicio.toFixed(1)}</span></span>
                 </div>
-                <p style="font-size:0.9rem; color:var(--text-primary); line-height:1.4; margin-top:4px;">"${escapeHtml(r.comentario)}"</p>
-                <div style="font-size:0.75rem; color:var(--text-secondary);">Degustó: ${escapeHtml(r.productos.join(', '))}</div>
+                <p style="font-size:0.9rem; color:var(--text-primary); line-height:1.4; margin-top:4px;">"${r.comentario}"</p>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">Degustó: ${r.productos.join(', ')}</div>
             </div>
         `).join('');
         html += `</div>`;
@@ -1179,9 +1056,10 @@ window.submitCustomReview = function(localId) {
         id: Date.now(),
         usuario: { nombre: window.currentUser.name, avatar: window.currentUser.name.slice(0,2).toUpperCase() },
         fecha: new Date().toISOString().split('T')[0],
+        tiempoTranscurrido: "Hace unos instantes",
         localId, productos: selectedDishes,
         fotoComida: mainUploadedPhoto, notaComida, notaServicio, comentario, spend,
-        likes: 0, likedBy: [], isDrink: false
+        likes: 0, liked: false, isDrink: false
     };
 
     const previousCount = getUserReviewCount();
@@ -1286,10 +1164,6 @@ function setupMapSwipeGestures() {
 function initializeMap() {
     const mapEl = document.getElementById('talcaMap');
     if (!mapEl) return;
-    if (typeof L === 'undefined') {
-        mapEl.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:40px 20px;">No se pudo cargar el mapa. Revisa tu conexión a internet.</p>';
-        return;
-    }
     const talcaCenter = [-35.4264, -71.6554];
     talcaMap = L.map(mapEl).setView(talcaCenter, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18, minZoom: 11 }).addTo(talcaMap);
@@ -1305,11 +1179,10 @@ window.filterMapMarkers = function(type, btn) {
     mapMarkers.forEach(m => talcaMap.removeLayer(m));
     mapMarkers = [];
     window.locales.forEach(local => {
-        const isOpen = isLocalOpen(local);
-        if (type === 'abiertos'    && !isOpen)                           return;
+        if (type === 'abiertos'    && !local.abierto)                    return;
         if (type === 'vegano'      && (local.vegano || 0) < 3)           return;
         if (type === 'vegetariano' && (local.vegetariano || 0) < 3)      return;
-        const color  = isOpen ? '#10b981' : '#ef4444';
+        const color  = local.abierto ? '#10b981' : '#ef4444';
         const marker = L.circleMarker([local.lat, local.lng], { radius: 10, fillColor: color, color: '#fff', weight: 3, fillOpacity: 0.9 }).addTo(talcaMap);
         marker.bindTooltip(local.nombre, { permanent: false, direction: 'top', offset: [0, -10], className: 'leaflet-tooltip-custom' });
         marker.on('click', () => showLocalDetail(local));
@@ -1617,8 +1490,8 @@ function renderPhotoFeedSlider(container) {
             <div class="photo-slide-overlay"></div>
             <div class="photo-slide-info">
                 <h3>${local.nombre}</h3>
-                <p><b>Degustó:</b> ${escapeHtml(review.productos.join(', '))}</p>
-                <p style="font-style:italic; margin-top:4px;">"${escapeHtml(review.comentario.slice(0, 90))}${review.comentario.length > 90 ? '...' : ''}"</p>
+                <p><b>Degustó:</b> ${review.productos.join(', ')}</p>
+                <p style="font-style:italic; margin-top:4px;">"${review.comentario.slice(0, 90)}${review.comentario.length > 90 ? '...' : ''}"</p>
             </div>
             <div class="photo-slide-actions">
                 <div>
@@ -1685,10 +1558,10 @@ window.closePhotoFeed = function() {
 };
 
 window.likePhotoSlide = function(slideIdx, reviewId) {
-    if (checkGuestAccess()) return;
     const review = window.reviewsData.find(r => r.id === reviewId);
     if (!review) return;
-    const liked = toggleReviewLike(review);
+    review.likes++;
+    window.saveData();
     const label = document.getElementById(`photoLikes_${slideIdx}`);
     if (label) label.innerText = review.likes;
 
@@ -1697,10 +1570,10 @@ window.likePhotoSlide = function(slideIdx, reviewId) {
         review.productos.forEach(prodStr => {
             const cleanName = prodStr.split(' (x')[0];
             const menuItem  = local.menu.find(m => m.nombre.toLowerCase().includes(cleanName.toLowerCase()));
-            if (menuItem) menuItem.likes = Math.max(0, (menuItem.likes || 0) + (liked ? 1 : -1));
+            if (menuItem) menuItem.likes = (menuItem.likes || 0) + 1;
         });
+        window.saveData();
     }
-    window.saveData();
 };
 
 // Usar photoSlidesData (alias para compatibilidad)
@@ -1726,18 +1599,18 @@ window.openTikTokReviewModal = function(slideIdx) {
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
                 <div class="avatar" style="width:40px; height:40px; font-size:1.1rem; background:var(--mesa-gold); color:black;">${review.usuario.avatar}</div>
                 <div>
-                    <h3 style="font-size:1.1rem; color:white;">${escapeHtml(review.usuario.nombre)}</h3>
-                    <p style="font-size:0.8rem; color:var(--text-secondary);">${timeAgo(review.fecha)}</p>
+                    <h3 style="font-size:1.1rem; color:white;">${review.usuario.nombre}</h3>
+                    <p style="font-size:0.8rem; color:var(--text-secondary);">${review.tiempoTranscurrido}</p>
                 </div>
             </div>
             <div style="background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); padding:15px; border-radius:12px; margin-bottom:20px;">
-                <p style="margin-bottom:8px;"><b>Platos consumidos:</b> ${escapeHtml(review.productos.join(', '))}</p>
+                <p style="margin-bottom:8px;"><b>Platos consumidos:</b> ${review.productos.join(', ')}</p>
                 <p style="margin-bottom:12px;"><b>Consumo Estimado:</b> $${(review.spend || 12000).toLocaleString('es-CL')}</p>
                 <div style="display:flex; gap:15px; font-size:1rem; font-weight:bold; margin-bottom:10px;">
                     <span>🍽️ Comida: <span style="color:var(--mesa-gold);">${review.notaComida.toFixed(1)}</span></span>
                     <span>🤵 Servicio: <span style="color:var(--mesa-gold);">${review.notaServicio.toFixed(1)}</span></span>
                 </div>
-                <p style="font-size:1rem; line-height:1.5; color:#cbd5e1; font-style:italic;">"${escapeHtml(review.comentario)}"</p>
+                <p style="font-size:1rem; line-height:1.5; color:#cbd5e1; font-style:italic;">"${review.comentario}"</p>
             </div>
             <button class="btn btn-primary" onclick="goToLocalFromTikTok(${local.id})" style="width:100%; padding:14px; font-size:1rem; border-radius:12px;">
                 ¡Me tentó! Ver local 🏃‍♂️💨
@@ -1815,8 +1688,8 @@ function renderFeedEnVivo() {
             <div style="display:flex; align-items:center; gap:10px;">
                 <div class="avatar" style="width:36px; height:36px; background:var(--mesa-gold); color:black;">${r.usuario.avatar}</div>
                 <div style="flex: 1;">
-                    <div style="font-weight:600; font-size:0.9rem; color:white;">${escapeHtml(r.usuario.nombre)}</div>
-                    <div style="font-size:0.75rem; color:var(--text-secondary);">${timeAgo(r.fecha)}</div>
+                    <div style="font-weight:600; font-size:0.9rem; color:white;">${r.usuario.nombre}</div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary);">${r.tiempoTranscurrido}</div>
                 </div>
             </div>
             <div style="background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); padding:10px; border-radius:12px;">
@@ -1824,17 +1697,17 @@ function renderFeedEnVivo() {
                     <img src="${local.imagen}" style="width:24px; height:24px; border-radius:4px; object-fit:cover; margin-right:8px;">
                     <span style="font-size:0.85rem; font-weight:600; color:var(--mesa-gold); cursor:pointer;" onclick="showLocalDetailById(${local.id})">${local.nombre}</span>
                 </div>
-                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:8px;">🍴 Degustó: ${escapeHtml(r.productos.join(', '))}</p>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:8px;">🍴 Degustó: ${r.productos.join(', ')}</p>
                 ${r.fotoComida ? `<img src="${r.fotoComida}" style="width:100%; height:150px; object-fit:cover; border-radius:12px; margin-bottom:10px;">` : ''}
                 <div style="display:flex; gap:15px; font-size:0.9rem; font-weight:bold; color:white;">
                     <span>🍽️ Comida: <span style="color:var(--mesa-gold);">${r.notaComida.toFixed(1)}</span></span>
                     <span>🤵 Servicio: <span style="color:var(--mesa-gold);">${r.notaServicio.toFixed(1)}</span></span>
                 </div>
             </div>
-            <p style="font-size:0.95rem; color:white; line-height:1.4;">"${escapeHtml(r.comentario)}"</p>
+            <p style="font-size:0.95rem; color:white; line-height:1.4;">"${r.comentario}"</p>
             <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--glass-border); padding-top:10px;">
-                <div style="color:${userLikedReview(r) ? 'var(--mesa-red)' : 'var(--text-secondary)'}; font-size:0.9rem; cursor:pointer;" onclick="likeReview(${r.id}, this)">
-                    ${userLikedReview(r) ? '❤️' : '🤍'} ${r.likes}
+                <div style="color:${r.liked ? 'var(--mesa-red)' : 'var(--text-secondary)'}; font-size:0.9rem; cursor:pointer;" onclick="likeReview(${r.id}, this)">
+                    ${r.liked ? '❤️' : '🤍'} ${r.likes}
                 </div>
                 <span style="color:var(--mesa-gold); font-size:0.8rem; font-weight:bold; cursor:pointer;" onclick='showLocalDetailById(${local.id})'>Ver Local →</span>
             </div>
@@ -1876,10 +1749,13 @@ window.likeReview = function(reviewId, element) {
     if (checkGuestAccess()) return;
     const review = window.reviewsData.find(r => r.id === reviewId);
     if (!review) return;
-    if (toggleReviewLike(review)) {
+    review.liked = !review.liked;
+    if (review.liked) {
+        review.likes++;
         element.style.color = 'var(--mesa-red)';
         element.innerHTML   = `❤️ ${review.likes}`;
     } else {
+        review.likes--;
         element.style.color = 'var(--text-secondary)';
         element.innerHTML   = `🤍 ${review.likes}`;
     }
@@ -1894,7 +1770,7 @@ window.openGeneralReviewModal = function() {
 // =================== BAÚL DE LOS ANTOJOS ===================
 
 window.triggerBaulRecommendation = function(type) {
-    const today  = new Date();
+    const today  = new Date("2026-07-09T02:17:35-04:00");
 
     const candidates = window.reviewsData.filter(r => {
         const revDate  = new Date(r.fecha);
@@ -1959,7 +1835,7 @@ function renderBaulModal() {
 
             <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); padding:12px; border-radius:12px; margin-bottom:16px; text-align:left;">
                 <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:4px;"><b>Comentario del comensal:</b></p>
-                <p style="font-size:0.88rem; color:#e2e8f0; font-style:italic;">"${escapeHtml(selectedReview.comentario)}"</p>
+                <p style="font-size:0.88rem; color:#e2e8f0; font-style:italic;">"${selectedReview.comentario}"</p>
             </div>
 
             <button class="btn btn-primary" onclick="goToLocalFromBaul(${local.id})" style="width:100%; padding:13px; font-size:1rem; border-radius:12px; font-weight:bold; margin-bottom:10px;">
@@ -1989,7 +1865,6 @@ window.goToLocalFromBaul = function(localId) {
 // =================== PERFIL — 4 SECCIONES ===================
 
 function renderPerfil() {
-    if (isGuest || !window.currentUser) return;
     const reviewCount     = getUserReviewCount();
     const currentLevel    = calculateLevel(reviewCount);
     const reqCurrent      = getRequiredForLevel(currentLevel);
@@ -2161,12 +2036,12 @@ window.openAdminQueueView = function() {
                     return `
                     <div class="card" style="flex-direction:column; gap:10px; background:rgba(239,68,68,0.03); border:1px solid rgba(239,68,68,0.2);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-weight:bold; color:white;">Reseña de ${escapeHtml(r.usuario.nombre)}</span>
+                            <span style="font-weight:bold; color:white;">Reseña de ${r.usuario.nombre}</span>
                             <span class="badge" style="background:#ef4444;">En Revisión</span>
                         </div>
-                        <p style="font-size:0.85rem; color:var(--text-secondary);"><b>Local:</b> ${local.nombre} | <b>Platos:</b> ${escapeHtml(r.productos.join(', '))}</p>
+                        <p style="font-size:0.85rem; color:var(--text-secondary);"><b>Local:</b> ${local.nombre} | <b>Platos:</b> ${r.productos.join(', ')}</p>
                         ${r.fotoComida ? `<img src="${r.fotoComida}" style="width:100%; height:120px; object-fit:cover; border-radius:8px;">` : ''}
-                        <p style="font-size:0.9rem; color:#cbd5e1; font-style:italic;">"${escapeHtml(r.comentario)}"</p>
+                        <p style="font-size:0.9rem; color:#cbd5e1; font-style:italic;">"${r.comentario}"</p>
                         <div style="display:flex; gap:10px; margin-top:5px;">
                             <button class="btn btn-primary" style="background:#10b981; color:white; padding:8px;" onclick="approveAdminReview(${idx})">Aprobar (Forzar)</button>
                             <button class="btn" style="background:#ef4444; color:white; padding:8px;" onclick="deleteAdminReview(${idx})">Borrar Reseña</button>
