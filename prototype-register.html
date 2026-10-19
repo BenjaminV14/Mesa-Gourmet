@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Registro - Mesa Gourmet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --mesa-red: #8B2635;
+      --mesa-dark-red: #6B1F2A;
+      --mesa-gold: #FFD700;
+      /* Premium Dark Theme Base */
+      --bg-color: #0f172a; 
+      --bg-panel: rgba(30, 41, 59, 0.65);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      position: relative;
+    }
+    .glass-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 35px 25px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo-container {
+      width: 80px; height: 80px;
+      margin: 0 auto 15px;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(45deg, var(--mesa-gold), var(--mesa-red));
+      box-shadow: 0 0 25px rgba(255, 215, 0, 0.25);
+    }
+    .logo-container img {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      border: 3px solid #1a1625;
+      object-fit: cover;
+    }
+    h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; color: white; margin-bottom: 5px; letter-spacing: 0.5px; }
+    p.subtitle { color: var(--text-secondary); font-size: 0.95rem; }
+    
+    .form-group { margin-bottom: 22px; }
+    label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; color: #cbd5e1; letter-spacing: 0.3px; }
+    .input-wrapper { position: relative; }
+    input, select {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px 16px;
+      color: white;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--mesa-gold);
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.15);
+      background: rgba(15, 23, 42, 0.8);
+    }
+    input::placeholder { color: #475569; }
+    
+    select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+    }
+    option { background: #1e293b; color: white; }
+
+    .tags-container {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .tag {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .tag:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .tag.active {
+      background: var(--mesa-red);
+      color: white;
+      border-color: var(--mesa-red);
+      box-shadow: 0 4px 12px rgba(139, 38, 53, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    .btn-submit {
+      width: 100%;
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--mesa-gold) 0%, #F59E0B 100%);
+      color: #78350f;
+      font-weight: 700;
+      font-size: 1.1rem;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+      box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-submit::after {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%; width: 50%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        transition: 0.5s;
+    }
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 20px -3px rgba(245, 158, 11, 0.4);
+    }
+    .btn-submit:hover::after {
+        left: 100%;
+    }
+    .btn-submit:active { transform: scale(0.98); }
+    
+    .social-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .social-input-wrapper { position: relative; }
+    .social-input-wrapper span {
+      position: absolute; left: 14px; top: 14px; color: #64748b; font-weight: 600;
+    }
+    .social-input-wrapper input { padding-left: 36px; }
+    
+    .guest-link {
+        display: block;
+        text-align: center;
+        margin-top: 20px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        text-decoration: none;
+        transition: color 0.2s;
+        cursor: pointer;
+    }
+    .guest-link:hover { color: white; text-decoration: underline; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .rut-validation { font-size: 0.75rem; color: #ef4444; margin-top: 6px; display: none; }
+    .rut-validation.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="glass-card">
+      <div class="header">
+        <div class="logo-container">
+          <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="Mesa Gourmet Logo">
+        </div>
+        <h1>Únete a la Mesa</h1>
+        <p class="subtitle">Descubre los mejores sabores de tu ciudad</p>
+      </div>
+      
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="rut">RUT (Obligatorio)</label>
+          <div class="input-wrapper">
+            <input type="text" id="rut" placeholder="Ej: 12.345.678-9" autocomplete="off" required>
+          </div>
+          <p class="rut-validation" id="rutError">RUT inválido. Por favor verifica el formato.</p>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Correo (Alternativa p/extranjeros)</label>
+          <div class="input-wrapper">
+            <input type="email" id="email" placeholder="correo@ejemplo.com">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>¿Con qué frecuencia sales a comer?</label>
+          <div class="input-wrapper">
+             <select id="frequency">
+                <option value="" disabled selected>Selecciona tu ritmo</option>
+                <option value="1">1 a 2 veces por semana</option>
+                <option value="2">3 a 5 veces por semana</option>
+                <option value="3">Solo en ocasiones especiales</option>
+             </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tus preferencias gastronómicas</label>
+          <div class="tags-container" id="preferencesTags">
+            <div class="tag">🍣 Sushi</div>
+            <div class="tag">🍔 Burgers</div>
+            <div class="tag">🍕 Pizza</div>
+            <div class="tag">🌱 Vegano</div>
+            <div class="tag">☕ Café</div>
+            <div class="tag">🥩 Carnes</div>
+            <div class="tag">🌮 Mexicano</div>
+            <div class="tag">🍺 Venta de Alcohol</div>
+            <div class="tag">🍦 Dulces</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tus Redes Sociales</label>
+          <div class="social-inputs">
+            <div class="social-input-wrapper">
+              <span>@</span>
+              <input type="text" placeholder="Instagram">
+            </div>
+            <div class="social-input-wrapper">
+              <span>@</span>
+              <input type="text" placeholder="TikTok">
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-submit" id="submitBtn">Comenzar Aventura 🍽️</button>
+        <span class="guest-link">Continuar como invitado</span>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Tag selection magic
+    const tags = document.querySelectorAll('.tag');
+    tags.forEach(tag => {
+      tag.addEventListener('click', () => {
+        tag.classList.toggle('active');
+        // Simple scale bounce effect
+        tag.style.transform = 'scale(0.9)';
+        setTimeout(() => tag.style.transform = tag.classList.contains('active') ? 'translateY(-2px)' : 'none', 100);
+      });
+    });
+    
+    // Auto-formateo básico de RUT
+    const rutInput = document.getElementById('rut');
+    rutInput.addEventListener('input', (e) => {
+        let value = e.target.value.replace(/[^0-9kK]/g, '');
+        if (value.length > 1) {
+            value = value.slice(0, -1) + '-' + value.slice(-1);
+            value = value.replace(/\B(?=(\d{3})+(?!\d)\-)/g, '.');
+        }
+        e.target.value = value;
+    });
+  </script>
+</body>
+</html>
