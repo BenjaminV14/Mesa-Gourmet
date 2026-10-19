@@ -1,98 +1,26 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mesa Gourmet - Panel Admin</title>
-    <!-- Fonts -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Mesa Gourmet · Administración</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./src/style.css">
-    <style>
-        .admin-layout {
-            max-width: 800px;
-            margin: 0 auto;
-            min-height: 100vh;
-            background: var(--bg-color);
-            box-shadow: var(--shadow-md);
-            color: var(--text-primary);
-        }
-        .admin-header {
-            background: linear-gradient(135deg, var(--mesa-red), var(--mesa-dark-red));
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: white;
-            border-bottom-left-radius: 16px;
-            border-bottom-right-radius: 16px;
-            margin-bottom: 20px;
-        }
-        .admin-header h1 {
-            font-size: 1.5rem;
-            margin: 0;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-        }
-        .admin-content {
-            padding: 20px;
-        }
-        .admin-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: var(--shadow-sm);
-        }
-        .menu-item-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr auto;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-        .menu-item-row input {
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(0,0,0,0.1);
-            font-size: 0.95rem;
-            width: 100%;
-            background: var(--bg-color);
-            color: var(--text-primary);
-        }
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #10b981;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-            z-index: 9999;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="admin-layout">
-        <div class="admin-header">
-            <h1 class="brand-title">Gestión de Menús</h1>
-            <a href="index.html" class="btn btn-primary" style="background: rgba(255,255,255,0.2); text-decoration: none;">Ir a la App</a>
-        </div>
-        
-        <div class="admin-content" id="adminContent">
-            <!-- Locales will be rendered here -->
-        </div>
+    <div class="adm-shell">
+        <aside class="adm-sidebar">
+            <a class="adm-brand" href="./index.html" title="Abrir la app">
+                <span class="adm-brand-mark">MG</span>
+                <span><b>Mesa Gourmet</b><small>Administración</small></span>
+            </a>
+            <nav id="admNav" class="adm-nav" aria-label="Secciones del panel"></nav>
+            <p class="adm-demo-note">Modo demo: los cambios se guardan solo en este navegador. Con Supabase, solo tu cuenta de administrador podrá entrar aquí.</p>
+        </aside>
+        <main id="admMain" class="adm-main"></main>
     </div>
-    
-    <div class="toast" id="toastMsg">Cambios guardados exitosamente</div>
-
-    <script src="./src/data.js"></script>
-    <script src="./src/admin.js"></script>
+    <script type="module" src="/src/admin/main.js"></script>
 </body>
 </html>
