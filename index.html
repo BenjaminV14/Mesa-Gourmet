@@ -2,56 +2,56 @@
 <html lang="es" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mesa Gourmet - Talca</title>
-    <!-- Fonts -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#8B2635">
+    <meta name="description" content="Guía gastronómica de Talca: locales, menús, reseñas y videos de la comunidad.">
+    <title>Mesa Gourmet · Talca</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght=0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Styles -->
-    <link rel="stylesheet" href="./src/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="app" class="app-container">
-        <!-- Login Screen (Minimalista) -->
+        <!-- Ingreso y registro -->
         <div id="registerScreen" class="register-screen">
             <div class="glass-card login-card">
-                <div class="header" style="text-align: center; margin-bottom: 25px;">
-                    <div class="logo-container logo-animate" style="width: 100px; height: 100px; margin: 0 auto 15px;">
-                        <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="Mesa Gourmet Logo" class="brand-logo">
+                <div class="login-brand">
+                    <div class="logo-container logo-animate">
+                        <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="Mesa Gourmet" class="brand-logo">
                     </div>
-                    <h1 class="brand-title" style="color: white; font-size: 2.2rem; margin-bottom: 5px;">Mesa Gourmet</h1>
-                    <p class="subtitle" style="color: var(--text-secondary); font-size: 0.9rem;">Guía Gastronómica Premium de Talca</p>
+                    <h1 class="brand-title">Mesa Gourmet</h1>
+                    <p class="subtitle">Guía gastronómica de Talca</p>
                 </div>
-                
-                <form id="loginForm" style="display: flex; flex-direction: column; gap: 18px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="loginEmail">Correo Electrónico</label>
-                        <div class="input-wrapper">
-                            <input type="email" id="loginEmail" placeholder="correo@ejemplo.com" required style="padding: 16px;">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="loginPassword">Contraseña</label>
-                        <div class="input-wrapper">
-                            <input type="password" id="loginPassword" placeholder="••••••••" required style="padding: 16px;">
-                        </div>
-                    </div>
 
-                    <button type="button" class="btn-submit" id="submitBtn" style="padding: 16px; margin-top: 10px;">Ingresar 🍽️</button>
-                    
-                    <div style="display: flex; align-items: center; gap: 12px; margin: 8px 0 4px;">
-                        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.15);"></div>
-                        <span style="color: var(--text-secondary); font-size: 0.8rem;">o</span>
-                        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.15);"></div>
-                    </div>
+                <div class="auth-tabs" role="tablist">
+                    <button type="button" class="auth-tab" role="tab" data-action="auth-mode" data-auth-mode="login">Ingresar</button>
+                    <button type="button" class="auth-tab" role="tab" data-action="auth-mode" data-auth-mode="register">Crear cuenta</button>
+                </div>
 
-                    <button type="button" id="googleBtn" class="btn-google">
-                        <svg width="20" height="20" viewBox="0 0 48 48" style="flex-shrink:0;">
+                <form id="authForm" class="auth-form" novalidate>
+                    <div class="form-group register-only" hidden>
+                        <label for="authName">Nombre</label>
+                        <div class="input-wrapper"><input type="text" id="authName" autocomplete="name" maxlength="40" placeholder="Tu nombre"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="authEmail">Correo electrónico</label>
+                        <div class="input-wrapper"><input type="email" id="authEmail" autocomplete="email" inputmode="email" placeholder="correo@ejemplo.cl" required></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="authPassword">Contraseña</label>
+                        <div class="input-wrapper"><input type="password" id="authPassword" autocomplete="current-password" minlength="8" placeholder="Mínimo 8 caracteres" required></div>
+                    </div>
+                    <label class="check-row register-only" hidden>
+                        <input type="checkbox" id="authTerms">
+                        <span>Acepto los <a href="#" data-action="show-terms">términos</a> y la <a href="#" data-action="show-privacy">política de privacidad</a></span>
+                    </label>
+                    <p class="form-error" id="authError" role="alert" hidden></p>
+                    <button type="submit" class="btn-submit" id="authSubmit">Ingresar</button>
+
+                    <div class="divider"><span>o</span></div>
+
+                    <button type="button" class="btn-google" data-action="auth-google">
+                        <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
                             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
                             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -59,154 +59,106 @@
                         </svg>
                         Continuar con Google
                     </button>
-
-                    <div style="text-align: center; margin-top: 5px;">
-                        <button type="button" id="guestBtn" class="guest-link">Continuar como invitado</button>
-                    </div>
+                    <button type="button" class="guest-link" data-action="auth-guest">Continuar como invitado</button>
                 </form>
             </div>
         </div>
 
-        <!-- Splash Screen -->
+        <!-- Pantalla de carga -->
         <div id="splashScreen" class="splash-screen hidden">
             <div class="splash-content">
                 <div class="logo-container logo-animate">
-                    <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="Mesa Gourmet Logo" class="brand-logo">
+                    <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="" class="brand-logo">
                 </div>
                 <h1 class="brand-title">Mesa Gourmet</h1>
-                <p class="brand-subtitle">Cocinando Experiencias en Talca</p>
+                <p class="brand-subtitle">Cocinando experiencias en Talca</p>
             </div>
         </div>
 
-        <!-- Header -->
+        <!-- Cabecera -->
         <header id="mainHeader" class="app-header hidden">
             <div class="header-top glass-panel">
-                <div class="header-brand">
-                    <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="Mesa Gourmet Logo" class="mini-logo">
+                <button class="header-brand" data-action="nav" data-tab="inicio" aria-label="Ir al inicio">
+                    <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="" class="mini-logo">
                     <h2>Mesa Gourmet</h2>
-                </div>
-                <button class="profile-btn nav-tab" data-tab="perfil" style="background: linear-gradient(135deg, var(--mesa-gold), #F59E0B); box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); border:none;">
-                    <div class="avatar" id="userAvatar" style="background:#fff; color:#854d0e;">JG</div>
-                    <span id="userName" style="color:#78350f; font-weight:bold;">Juan</span>
+                </button>
+                <button class="profile-btn nav-tab" data-action="nav" data-tab="perfil">
+                    <span class="avatar" id="userAvatar">G</span>
+                    <span id="userName">Invitado</span>
                 </button>
             </div>
 
-            <!-- Enhanced Search Bar -->
             <div class="search-container">
                 <div class="search-input-wrapper glass-panel">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="searchInput" placeholder="Buscar locales, comida, características..." autocomplete="off">
+                    <span class="search-icon" aria-hidden="true">🔍</span>
+                    <input type="search" id="searchInput" placeholder="Busca locales, platos o características…" autocomplete="off" aria-label="Buscar">
                 </div>
-                
-                <!-- Search Panel Completo -->
                 <div id="searchOptionsPanel" class="search-panel hidden glass-panel">
                     <div class="panel-section">
-                        <h3>Búsquedas recientes</h3>
-                        <div class="recent-list" id="recentSearches" style="margin-bottom: 15px;">
-                            <button class="search-option" data-search="sushi">🍣 Sushi</button>
-                            <button class="search-option" data-search="café">☕ Café</button>
-                            <button class="search-option" data-search="vegano">🌱 Vegano</button>
-                        </div>
-                        
                         <h3>Categorías</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
-                            <button class="search-option" data-search="todo">🍽️ Todo</button>
-                            <button class="search-option" data-search="restaurantes">🏪 Restaurantes</button>
-                            <button class="search-option" data-search="café">☕ Cafeterías</button>
-                            <button class="search-option" data-search="comida rápida">🍔 Comida Rápida</button>
+                        <div class="quick-grid">
+                            <button class="search-option" data-action="quick-search" data-search="todo">🍽️ Todo</button>
+                            <button class="search-option" data-action="quick-search" data-search="restaurantes">🏪 Restaurantes</button>
+                            <button class="search-option" data-action="quick-search" data-search="café">☕ Cafeterías</button>
+                            <button class="search-option" data-action="quick-search" data-search="comida rápida">🍔 Comida rápida</button>
                         </div>
-
                         <h3>Tipos de comida</h3>
-                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px;">
-                            <button class="badge search-option-pill" style="background:var(--mesa-red); padding:4px 10px; border-radius:12px; border:none; color:white; font-size:0.8rem; cursor:pointer;" data-search="sushi">🍣 Sushi</button>
-                            <button class="badge search-option-pill" style="background:var(--mesa-red); padding:4px 10px; border-radius:12px; border:none; color:white; font-size:0.8rem; cursor:pointer;" data-search="pasta">🍝 Pasta</button>
-                            <button class="badge search-option-pill" style="background:var(--mesa-red); padding:4px 10px; border-radius:12px; border:none; color:white; font-size:0.8rem; cursor:pointer;" data-search="pizza">🍕 Pizza</button>
-                            <button class="badge search-option-pill" style="background:var(--mesa-red); padding:4px 10px; border-radius:12px; border:none; color:white; font-size:0.8rem; cursor:pointer;" data-search="empanadas">🥟 Empanadas</button>
-                            <button class="badge search-option-pill" style="background:var(--mesa-red); padding:4px 10px; border-radius:12px; border:none; color:white; font-size:0.8rem; cursor:pointer;" data-search="hamburguesa">🍔 Hamburguesas</button>
+                        <div class="quick-pills">
+                            <button class="search-option-pill" data-action="quick-search" data-search="sushi">🍣 Sushi</button>
+                            <button class="search-option-pill" data-action="quick-search" data-search="pasta">🍝 Pasta</button>
+                            <button class="search-option-pill" data-action="quick-search" data-search="completo">🌭 Completos</button>
+                            <button class="search-option-pill" data-action="quick-search" data-search="empanadas">🥟 Empanadas</button>
+                            <button class="search-option-pill" data-action="quick-search" data-search="ceviche">🦐 Ceviche</button>
                         </div>
-
                         <h3>Características</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <button class="search-option" data-search="vegetariano">🥬 Vegetariano</button>
-                            <button class="search-option" data-search="wifi">📶 WiFi</button>
-                            <button class="search-option" data-search="terraza">🪑 Terraza</button>
-                            <button class="search-option" data-search="delivery">🚚 Delivery</button>
-                            <button class="search-option" data-search="mascotas">🐾 Pet-friendly</button>
-                            <button class="search-option" data-search="seguridad">🛡️ Seguridad</button>
-                            <button class="search-option" data-search="calefacción">🔥 Calefacción</button>
-                            <button class="search-option" data-search="alcohol">🍺 Venta de Alcohol</button>
+                        <div class="quick-grid">
+                            <button class="search-option" data-action="quick-search" data-search="vegetariano">🥬 Vegetariano</button>
+                            <button class="search-option" data-action="quick-search" data-search="wifi">📶 WiFi</button>
+                            <button class="search-option" data-action="quick-search" data-search="terraza">🪑 Terraza</button>
+                            <button class="search-option" data-action="quick-search" data-search="mascotas">🐾 Pet-friendly</button>
+                            <button class="search-option" data-action="quick-search" data-search="calefacción">🔥 Calefacción</button>
+                            <button class="search-option" data-action="quick-search" data-search="alcohol">🍺 Venta de alcohol</button>
                         </div>
                     </div>
                 </div>
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <main id="mainContent" class="main-content hidden">
-            <!-- Contenido dinámico inyectado aquí -->
-        </main>
+        <main id="mainContent" class="main-content hidden"></main>
 
-        <!-- Detail View Modal (Contenido dinámico de la vista detallada) -->
+        <!-- Ficha del local -->
         <div id="detailView" class="detail-view hidden">
             <div id="detailContent" class="detail-content"></div>
         </div>
 
-        <!-- Global Dietary Filter Preferences Modal (🎛️) -->
-        <div id="filterModal" class="detail-view hidden" style="z-index: 2500; background: rgba(15,23,42,0.95); backdrop-filter: blur(15px);">
-            <div class="detail-header" style="text-align: center; position: relative;">
-                <button class="back-btn" onclick="toggleFilterModal(false)" style="position: absolute; top: 15px; left: 15px; margin: 0;">✕ Cerrar</button>
-                <h1 style="margin-top: 15px; font-size: 1.6rem; color: white;">Preferencias de Recomendación</h1>
-                <p style="color: var(--mesa-gold); font-size: 0.9rem;">Filtra lo que ves en el Inicio</p>
+        <!-- Filtros dietéticos -->
+        <div id="filterModal" class="detail-view filter-modal hidden" role="dialog" aria-modal="true" aria-labelledby="filterTitle">
+            <div class="detail-header filter-header">
+                <button class="back-btn" data-action="close-filters">✕ Cerrar</button>
+                <h1 id="filterTitle">Preferencias</h1>
+                <p>Filtra los locales que ves en el inicio</p>
             </div>
-            <div style="padding: 25px; display: flex; flex-direction: column; gap: 20px;">
-                <div class="form-group">
-                    <label style="font-size: 1rem; color: white; margin-bottom: 12px; display: block;">Restricciones Alimenticias</label>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <button id="dietBtn_vegano" class="btn" style="justify-content: flex-start; padding: 14px; background: var(--bg-panel); border: 1px solid var(--glass-border); width: 100%; border-radius: 12px;" onclick="toggleDietary('vegano')">
-                            🌱 Vegano
-                        </button>
-                        <button id="dietBtn_celiaco" class="btn" style="justify-content: flex-start; padding: 14px; background: var(--bg-panel); border: 1px solid var(--glass-border); width: 100%; border-radius: 12px;" onclick="toggleDietary('celiaco')">
-                            🌾 Celíaco (Sin Gluten)
-                        </button>
-                        <button id="dietBtn_sinLactosa" class="btn" style="justify-content: flex-start; padding: 14px; background: var(--bg-panel); border: 1px solid var(--glass-border); width: 100%; border-radius: 12px;" onclick="toggleDietary('sinLactosa')">
-                            🥛 Sin Lactosa
-                        </button>
-                    </div>
-                </div>
-                <button class="btn btn-primary" onclick="toggleFilterModal(false)" style="padding: 16px; font-size: 1rem; border-radius: 12px; margin-top: 10px;">Aplicar Preferencias 🎛️</button>
+            <div class="filter-body">
+                <p class="filter-label">Restricciones alimentarias</p>
+                <button id="dietBtn_vegano" class="diet-btn" data-action="toggle-diet" data-diet="vegano" aria-pressed="false">🌱 Vegano</button>
+                <button id="dietBtn_celiaco" class="diet-btn" data-action="toggle-diet" data-diet="celiaco" aria-pressed="false">🌾 Celíaco (sin gluten)</button>
+                <button id="dietBtn_sinLactosa" class="diet-btn" data-action="toggle-diet" data-diet="sinLactosa" aria-pressed="false">🥛 Sin lactosa</button>
+                <button class="btn btn-primary filter-apply" data-action="close-filters">Aplicar 🎛️</button>
             </div>
         </div>
 
-        <!-- Bottom Navigation -->
-        <nav id="bottomNav" class="bottom-nav hidden glass-panel">
+        <!-- Barra inferior -->
+        <nav id="bottomNav" class="bottom-nav hidden glass-panel" aria-label="Secciones">
             <div class="nav-items">
-                <button class="nav-tab" data-tab="mapa">
-                    <span class="nav-icon">🗺️</span>
-                    <span class="nav-text">Mapa</span>
-                </button>
-                <button class="nav-tab" data-tab="top50">
-                    <span class="nav-icon">🏆</span>
-                    <span class="nav-text">Top 50</span>
-                </button>
-                <button class="nav-tab active-tab" data-tab="inicio">
-                    <div class="fab-wrapper">
-                        <span class="nav-icon fab-icon" style="color: white;">🏠</span>
-                    </div>
-                </button>
-                <button class="nav-tab" data-tab="misiones">
-                    <span class="nav-icon">🎯</span>
-                    <span class="nav-text">Misiones</span>
-                </button>
-                <button class="nav-tab" data-tab="reseñas">
-                    <span class="nav-icon">⭐</span>
-                    <span class="nav-text">Reseñas</span>
-                </button>
+                <button class="nav-tab" data-action="nav" data-tab="mapa"><span class="nav-icon">🗺️</span><span class="nav-text">Mapa</span></button>
+                <button class="nav-tab" data-action="nav" data-tab="top50"><span class="nav-icon">🏆</span><span class="nav-text">Top 50</span></button>
+                <button class="nav-tab active-tab" data-action="nav" data-tab="inicio" aria-label="Inicio"><span class="fab-wrapper"><span class="nav-icon fab-icon">🏠</span></span></button>
+                <button class="nav-tab" data-action="nav" data-tab="misiones"><span class="nav-icon">🎯</span><span class="nav-text">Misiones</span></button>
+                <button class="nav-tab" data-action="nav" data-tab="resenas"><span class="nav-icon">⭐</span><span class="nav-text">Reseñas</span></button>
             </div>
         </nav>
     </div>
 
-    <!-- Scripts -->
-    <script src="./src/data.js"></script>
-    <script src="./src/main.js"></script>
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>
