@@ -10,13 +10,17 @@ function renderAdmin() {
         let menuHtml = local.menu.map((item, itemIndex) => `
             <div class="menu-item-row">
                 <input type="text" placeholder="Nombre del Plato" value="${item.nombre}" id="name-${localIndex}-${itemIndex}">
+                <input type="text" placeholder="Categoría" value="${item.categoria || ''}" id="cat-${localIndex}-${itemIndex}" list="categorias-${localIndex}">
                 <input type="number" placeholder="Precio ($)" value="${item.precio}" id="price-${localIndex}-${itemIndex}">
                 <button class="btn btn-primary" onclick="saveMenuItem(${localIndex}, ${itemIndex})">Guardar</button>
             </div>
         `).join('');
 
+        const categorias = [...new Set(local.menu.map(m => m.categoria).filter(Boolean))];
+
         container.innerHTML += `
             <div class="admin-card">
+                <datalist id="categorias-${localIndex}">${categorias.map(c => `<option value="${c}">`).join('')}</datalist>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0; color: var(--mesa-red); font-weight: 700;">${local.nombre}</h3>
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -51,14 +55,16 @@ window.saveNotaMG = function(localIndex) {
 
 window.saveMenuItem = function(localIndex, itemIndex) {
     const nameInput = document.getElementById(`name-${localIndex}-${itemIndex}`).value;
+    const catInput = document.getElementById(`cat-${localIndex}-${itemIndex}`).value.trim();
     const priceInput = parseInt(document.getElementById(`price-${localIndex}-${itemIndex}`).value);
     
-    if(!nameInput || isNaN(priceInput)) {
-        alert("Por favor ingrese un nombre y precio válido.");
+    if(!nameInput || !catInput || isNaN(priceInput)) {
+        alert("Por favor ingrese un nombre, categoría y precio válido.");
         return;
     }
 
     window.locales[localIndex].menu[itemIndex].nombre = nameInput;
+    window.locales[localIndex].menu[itemIndex].categoria = catInput;
     window.locales[localIndex].menu[itemIndex].precio = priceInput;
     
     // Save to LocalStorage
@@ -69,6 +75,7 @@ window.saveMenuItem = function(localIndex, itemIndex) {
 window.addMenuItem = function(localIndex) {
     window.locales[localIndex].menu.push({
         nombre: "",
+        categoria: "",
         precio: 0,
         imagen: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop",
         likes: 0

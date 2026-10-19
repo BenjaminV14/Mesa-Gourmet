@@ -97,6 +97,8 @@ const defaultLocales = [
         lng: -71.6600,
         sorteoFlash: {
             premio: "Cena para 2 en La Cocina de Ramsés",
+            duracionMs: 3 * 60 * 1000,   // cada ronda dura 3 minutos
+            pausaMs: 10 * 60 * 1000,     // y vuelve 10 minutos después de terminar
             expiraTimestamp: Date.now() + 180000
         }
     },
@@ -226,7 +228,7 @@ const defaultLocales = [
 ];
 
 const getPastDateStr = (daysAgo) => {
-    const d = new Date("2026-07-09T02:17:35-04:00");
+    const d = new Date();
     d.setDate(d.getDate() - daysAgo);
     return d.toISOString().split('T')[0];
 };
@@ -236,7 +238,6 @@ const defaultReviews = [
         id: 1,
         usuario: { nombre: "María Fernández", avatar: "MF" },
         fecha: getPastDateStr(25),
-        tiempoTranscurrido: "hace 25 días",
         localId: 1,
         productos: ["Ceviche Clásico", "Pisco Sour Peruano"],
         fotoComida: "https://images.unsplash.com/photo-1535399831218-d5bd36d1a6b3?w=500&h=500&fit=crop",
@@ -244,14 +245,13 @@ const defaultReviews = [
         notaServicio: 9.0,
         comentario: "¡Increíble la frescura del Ceviche Clásico! El Pisco Sour estaba en su punto exacto, bien cítrico y espumoso. Excelente servicio y muy limpio.",
         likes: 23,
-        liked: false,
+        likedBy: [],
         isDrink: false
     },
     {
         id: 2,
         usuario: { nombre: "Carlos Rodriguez", avatar: "CR" },
         fecha: getPastDateStr(60),
-        tiempoTranscurrido: "hace 2 meses",
         localId: 2,
         productos: ["Café Latte especial", "Sándwich de Rúcula & Jamón Serrano"],
         fotoComida: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&h=500&fit=crop",
@@ -259,14 +259,13 @@ const defaultReviews = [
         notaServicio: 9.2,
         comentario: "El Café Latte es espectacular, con un arte latte hermoso. El sándwich crujiente y fresco. Un lugar ideal para pasar la tarde.",
         likes: 15,
-        liked: true,
+        likedBy: ["juan@mesagourmet.cl"],
         isDrink: true
     },
     {
         id: 3,
         usuario: { nombre: "Ana Silva", avatar: "AS" },
         fecha: getPastDateStr(5),
-        tiempoTranscurrido: "hace 5 días",
         localId: 3,
         productos: ["Empanada de Pino Horno"],
         fotoComida: "https://images.unsplash.com/photo-1604467715878-83e57e8bc129?w=500&h=500&fit=crop",
@@ -274,14 +273,13 @@ const defaultReviews = [
         notaServicio: 8.0,
         comentario: "Las empanadas de pino al horno son gigantes y la carne muy bien aliñada sin repetirse. Un clásico talquino indispensable.",
         likes: 12,
-        liked: false,
+        likedBy: [],
         isDrink: false
     },
     {
         id: 4,
         usuario: { nombre: "Pedro Morales", avatar: "PM" },
         fecha: getPastDateStr(120),
-        tiempoTranscurrido: "hace 4 meses",
         localId: 4,
         productos: ["Sushi Roll Ebi Furai", "Ramén Miso de Cerdo"],
         fotoComida: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=500&h=500&fit=crop",
@@ -289,14 +287,13 @@ const defaultReviews = [
         notaServicio: 9.2,
         comentario: "El roll Ebi Furai es gigante y el panko súper crujiente. El ramen tiene un caldo denso y sabroso. 100% recomendado.",
         likes: 31,
-        liked: false,
+        likedBy: [],
         isDrink: false
     },
     {
         id: 5,
         usuario: { nombre: "Sofía Ibáñez", avatar: "SI" },
         fecha: getPastDateStr(1),
-        tiempoTranscurrido: "hace 1 día",
         localId: 1,
         productos: ["Pisco Sour Peruano"],
         fotoComida: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=500&h=500&fit=crop",
@@ -304,7 +301,7 @@ const defaultReviews = [
         notaServicio: 9.4,
         comentario: "Fui por unos tragos con amigos y el Pisco Sour Peruano es sin duda el mejor de Talca. Seco, equilibrado y helado.",
         likes: 42,
-        liked: true,
+        likedBy: ["juan@mesagourmet.cl"],
         isDrink: true
     }
 ];
@@ -334,6 +331,21 @@ if (window.currentUser) {
     if (!window.currentUser.hasOwnProperty('firstLoginDone'))   window.currentUser.firstLoginDone   = false;
     if (!window.currentUser.hasOwnProperty('level'))            window.currentUser.level             = 0;
 }
+
+// Los "me gusta" ahora se guardan por usuario
+window.reviewsData.forEach(r => {
+    if (!Array.isArray(r.likedBy)) r.likedBy = r.liked ? [defaultUser.email] : [];
+    delete r.liked;
+    delete r.tiempoTranscurrido;
+});
+
+// Restaurar sorteos flash que versiones anteriores borraban al expirar
+window.locales.forEach(l => {
+    const original = defaultLocales.find(d => d.id === l.id);
+    if (original && original.sorteoFlash && !l.sorteoFlash) {
+        l.sorteoFlash = { ...original.sorteoFlash };
+    }
+});
 
 window.saveData = function() {
     localStorage.setItem('mesaLocales',  JSON.stringify(window.locales));
