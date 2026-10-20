@@ -1,15 +1,25 @@
 // Pestaña Reseñas: dos paneles que se deslizan (Reseñas | Videos).
-// En el panel de reseñas se intercala un video cada 3 reseñas.
-import { db, publishedReviews, approvedVideos } from '../data/store.js';
+// Las reseñas con fotos van primero; cada 3 reseñas aparece un video. Se actualiza sola cuando llegan reseñas nuevas.
+import { state, isLoggedIn } from '../state.js';
+import { publishedReviews, approvedVideos } from '../data/store.js';
 import { registerActions } from '../ui/actions.js';
 import { emptyState } from '../ui/cards.js';
-import { esc, safeUrl } from '../utils/html.js';
+import { localPicker, mountPicker } from '../ui/local-picker.js';
 import { reviewCard } from './review-card.js';
 import { videoTeaser, renderVideoFeed } from './videos.js';
 import { openReviewForm } from './review-form.js';
 import { requireAccount } from './auth.js';
 
 let currentPane = 'resenas';
+let filtro = 'todas';   // 'todas' | 'siguiendo'
+let vistos = 0;
+
+function ordenadas() {
+    let reviews = publishedReviews();
+    if (filtro === 'siguiendo' && isLoggedIn()) reviews = reviews.filter(r => state.user.siguiendo.includes(r.usuario.id));
+    const conFoto = r => ((r.fotos || []).length > 0 ? 1 : 0);
+    return reviews.sort((a, b) => conFoto(b) - conFoto(a) || new Date(b.fecha) - new Date(a.fecha));
+}
 
 export function renderResenas(pane = 'resenas', videoId = null) {
     const main = document.getElementById('mainContent');
@@ -30,14 +40,23 @@ export function renderResenas(pane = 'resenas', videoId = null) {
 }
 
 function renderReviewsPane() {
-    const reviews = publishedReviews().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const reviews = ordenadas();
     const videos = approvedVideos();
+    vistos = publishedReviews().length;
     let html = `
         <div class="section-head">
-            <h3 class="section-title">Reseñas recientes</h3>
-            <button class="chip-btn chip-gold" data-action="pick-local-review">✍️ Escribir</button>
-        </div>`;
-    if (!reviews.length) return html + emptyState('✍️', 'Aún no hay reseñas.');
+            <div class="segmented small" role="tablist">
+                <button class="segmented-btn ${filtro === 'todas' ? 'is-on' : ''}" data-action="resenas-filtro" data-filtro="todas">Todas</button>
+                <button class="segmented-btn ${filtro === 'siguiendo' ? 'is-on' : ''}" data-action="resenas-filtro" data-filtro="siguiendo">Siguiendo</button>
+            </div>
+            <button class="chip-btn chip-gold" data-action="pick-local-review">✍️ Escribir reseña</button>
+        </div>
+        <div id="newReviewsBanner"></div>`;
+    if (!reviews.length) {
+        return html + (filtro === 'siguiendo'
+            ? emptyState('👥', 'Aún no sigues a nadie, o las personas que sigues no han publicado. Toca "Seguir" en una reseña.')
+            : emptyState('✍️', 'Aún no hay reseñas.'));
+    }
     html += '<div class="review-list">';
     reviews.forEach((r, i) => {
         html += reviewCard(r);
@@ -56,7 +75,6 @@ function setPane(pane, videoId = null) {
     const slider = document.getElementById('resenasSlider');
     if (!slider) return;
     slider.style.transform = pane === 'videos' ? 'translateX(-50%)' : 'translateX(0)';
-    // El panel oculto no debe recibir foco ni lectores de pantalla
     document.getElementById('resenasPane').inert = pane !== 'resenas';
     document.getElementById('videosPane').inert = pane !== 'videos';
     if (pane === 'videos') renderVideoFeed(document.getElementById('videosPane'), videoId);
@@ -74,28 +92,38 @@ function setupSwipe() {
     wrapper.addEventListener('touchend', e => {
         const dx = e.changedTouches[0].clientX - startX;
         const dy = e.changedTouches[0].clientY - startY;
-        if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-            setPane(dx < 0 ? 'videos' : 'resenas');
-        }
+        if (e.target.closest('.local-picker, input, textarea')) return;
+        if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) setPane(dx < 0 ? 'videos' : 'resenas');
     }, { passive: true });
 }
 
 function openLocalPicker() {
     if (!requireAccount('escribir reseñas')) return;
-    const main = document.getElementById('resenasPane');
-    main.innerHTML = `
+    const pane = document.getElementById('resenasPane');
+    pane.innerHTML = `
         <div class="section-head">
             <h3 class="section-title">¿Qué local quieres reseñar?</h3>
             <button class="chip-btn" data-action="resenas-pane" data-pane="resenas">← Volver</button>
         </div>
-        <div class="review-list">
-            ${db.locales.map(local => `
-                <button class="card picker-card" data-action="review-local" data-id="${local.id}">
-                    <img src="${esc(safeUrl(local.imagen))}" alt="">
-                    <span><b>${esc(local.nombre)}</b><small>${esc(local.tipo)}</small></span>
-                    <span class="badge estado-abierto">Reseñar</span>
-                </button>`).join('')}
-        </div>`;
+        ${localPicker('reviewLocalPicker', { onChoose: local => { if (local) openReviewForm(local.id); } })}`;
+    mountPicker('reviewLocalPicker');
+    document.getElementById('reviewLocalPicker-input')?.focus();
+}
+
+// Aviso de reseñas nuevas (llegan desde otra pestaña o, con Supabase, en tiempo real)
+function onDataChanged() {
+    if (state.currentView !== 'resenas' || currentPane !== 'resenas') return;
+    const nuevas = publishedReviews().length - vistos;
+    const banner = document.getElementById('newReviewsBanner');
+    if (banner && nuevas > 0) {
+        banner.innerHTML = `<button class="new-reviews-btn" data-action="resenas-refresh">⬆ ${nuevas} reseña${nuevas === 1 ? ' nueva' : 's nuevas'}</button>`;
+    }
+}
+window.addEventListener('mg:data-changed', onDataChanged);
+
+export function refreshResenas() {
+    const pane = document.getElementById('resenasPane');
+    if (pane && currentPane === 'resenas') pane.innerHTML = renderReviewsPane();
 }
 
 registerActions({
@@ -103,12 +131,15 @@ registerActions({
         if (el.dataset.pane === 'resenas') document.getElementById('resenasPane').innerHTML = renderReviewsPane();
         setPane(el.dataset.pane);
     },
+    'resenas-filtro': el => {
+        if (el.dataset.filtro === 'siguiendo' && !requireAccount('ver a quién sigues')) return;
+        filtro = el.dataset.filtro;
+        refreshResenas();
+    },
+    'resenas-refresh': () => {
+        refreshResenas();
+        document.getElementById('resenasPane')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    },
     'open-video': el => setPane('videos', el.dataset.id),
-    'pick-local-review': () => openLocalPicker(),
-    'review-local': el => openReviewForm(Number(el.dataset.id))
+    'pick-local-review': () => openLocalPicker()
 });
-
-export function refreshResenas() {
-    const pane = document.getElementById('resenasPane');
-    if (pane && currentPane === 'resenas') pane.innerHTML = renderReviewsPane();
-}

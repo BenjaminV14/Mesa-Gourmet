@@ -4,15 +4,28 @@ import { registerActions } from '../../ui/actions.js';
 import { esc, safeUrl } from '../../utils/html.js';
 import { DIAS_SEMANA, estadoHorario } from '../../utils/time.js';
 import { isSponsored } from '../../features/sponsors.js';
+import { notaActual, DIETAS as DIETAS_APP } from '../../data/metrics.js';
+import { CARACTERISTICAS_KEYWORDS } from '../survey.js';
+import { banco } from './encuesta-form.js';
 import { field, textarea, val, toast, confirmDialog, statusPill } from '../ui.js';
 
-export const CARACTERISTICAS = [
-    'Baño / WC', 'WiFi Disponible', 'Terraza', 'Mascotas (Solo en Terraza)', 'Ingreso de Mascotas', 'Seguridad Completa',
-    'Calefacción', 'Aire Acondicionado / Ventilación', 'Acceso Discapacitados', 'Estacionamiento', 'Bicicletero',
-    'Venta de Alcohol', 'Apto para Fumadores (Solo en Terraza)', 'Acepta Edenred / BAES', 'Delivery'
-];
+export const CARACTERISTICAS = [...Object.keys(CARACTERISTICAS_KEYWORDS), 'Ingreso de Mascotas'];
 
-const DIETAS = [['vegano', '🌱 Vegano'], ['vegetariano', '🥬 Vegetariano'], ['sinGluten', '🌾 Sin gluten'], ['sinLactosa', '🥛 Sin lactosa']];
+const DIETAS = DIETAS_APP.map(d => [d.key, `${d.emoji} ${d.label}`]);
+
+// Datos para la sección "Antes de ir" de la ficha
+const EXTRAS = [
+    ['slogan', 'Slogan o frase del local', 'Ej: El sabor de la casa'],
+    ['referencia', 'Punto de referencia', 'Ej: Frente a la plaza'],
+    ['horarioFeriados', 'Horario en feriados', 'Ej: Feriados de 13:00 a 18:00'],
+    ['mediosPago', 'Medios de pago', 'Efectivo, débito, crédito, transferencia'],
+    ['capacidad', 'Capacidad', 'Ej: 40 personas, 10 mesas'],
+    ['ambiente', 'Ambiente y público', 'Ej: Familiar, estudiantes'],
+    ['tematica', 'Temática o decoración', 'Ej: Rústica, años 80'],
+    ['horasPeak', 'Horas con más gente', 'Ej: 13:00 a 15:00'],
+    ['diasPeak', 'Días con más gente', 'Ej: Viernes y sábado'],
+    ['notaAcceso', 'Para llegar o entrar', 'Ej: Tiene escalera, sin rampa']
+];
 const ORDEN_DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 let editingId = null;
@@ -33,14 +46,14 @@ export function renderLocales() {
         <input class="adm-search" type="search" placeholder="Buscar local…" value="${esc(filtro)}" data-input="adm-local-filter" aria-label="Buscar local">
         <div class="adm-table-wrap">
             <table class="adm-table">
-                <thead><tr><th>Local</th><th>Tipo</th><th>Estado ahora</th><th>Nota</th><th>Platos</th><th></th></tr></thead>
+                <thead><tr><th>Local</th><th>Tipo</th><th>Estado ahora</th><th>Nota 30 días</th><th>Platos</th><th></th></tr></thead>
                 <tbody>
                     ${lista.map(l => `
                         <tr>
                             <td><div class="adm-local-cell"><img src="${esc(safeUrl(l.imagen))}" alt=""><b>${esc(l.nombre)}</b> ${isSponsored(l) ? statusPill('★ Destacado', 'gold') : ''}</div></td>
                             <td>${esc(l.tipo)}</td>
                             <td>${esc(estadoHorario(l).etiqueta)}</td>
-                            <td>${(l.notaMG || 0).toFixed(1)}</td>
+                            <td>${notaActual(l.id).total ? notaActual(l.id).total.toFixed(1) : '—'}</td>
                             <td>${(l.menu || []).length}</td>
                             <td class="adm-row-actions"><button class="adm-btn small" data-action="adm-local-edit" data-id="${l.id}">Editar</button></td>
                         </tr>`).join('')}
@@ -68,10 +81,19 @@ function renderForm(local) {
                     ${field('WhatsApp (solo números)', 'f_whatsapp', l.whatsapp, { placeholder: '56912345678' })}
                     ${field('Instagram (usuario)', 'f_instagram', l.instagram)}
                     ${field('TikTok (usuario)', 'f_tiktok', l.tiktok)}
+                    ${field('Facebook (usuario o página)', 'f_facebook', l.facebook)}
                     ${field('Sitio web', 'f_website', l.website, { type: 'url', placeholder: 'https://' })}
                     ${field('Foto principal (URL)', 'f_imagen', l.imagen, { type: 'url', placeholder: 'https://' })}
                     ${textarea('Descripción', 'f_descripcion', l.descripcion)}
                     ${field('Palabras clave para el buscador (separadas por coma)', 'f_etiquetas', (l.etiquetas || []).join(', '), { full: true, placeholder: 'peruano, ceviche, mariscos' })}
+                </div>
+            </section>
+
+            <section class="adm-card">
+                <h2>Antes de ir</h2>
+                <p class="adm-help">Se muestra en la ficha solo lo que completes.</p>
+                <div class="adm-grid">
+                    ${EXTRAS.map(([key, label, ph]) => field(label, `f_x_${key}`, l[key] || '', { placeholder: ph })).join('')}
                 </div>
             </section>
 
@@ -96,24 +118,31 @@ function renderForm(local) {
 
             <section class="adm-card">
                 <h2>Características</h2>
-                <div class="adm-checks">
-                    ${CARACTERISTICAS.map((c, i) => `<label><input type="checkbox" id="f_c_${i}" ${(l.caracteristicas || []).includes(c) ? 'checked' : ''}> ${esc(c)}</label>`).join('')}
+                <p class="adm-help">El detalle aparece al tocar la característica en la ficha (ej: la clave del WiFi, "solo en terraza", con qué apps hacen delivery).</p>
+                <div class="adm-car-list">
+                    ${CARACTERISTICAS.map((c, i) => `
+                    <div class="adm-car-row">
+                        <label><input type="checkbox" id="f_c_${i}" ${(l.caracteristicas || []).includes(c) ? 'checked' : ''}> ${esc(c)}</label>
+                        <input type="text" id="f_cd_${i}" value="${esc((l.caracteristicasDetalle || {})[c] || '')}" placeholder="Detalle (opcional)" aria-label="Detalle de ${esc(c)}">
+                    </div>`).join('')}
                 </div>
             </section>
 
             <section class="adm-card">
-                <h2>Opciones dietéticas (0 = no tiene, 5 = excelente)</h2>
+                <h2>Opciones dietéticas: cantidad de productos</h2>
+                <p class="adm-help">Las estrellas se calculan solas: 1-2 productos = 1★, 3-5 = 2★, 6-8 = 3★, 9-11 = 4★, 12 o más = 5★. Con 0 no se muestra.
+                Si marcas los platos en "Cartas", se usa el número mayor.</p>
                 <div class="adm-grid">
-                    ${DIETAS.map(([key, label]) => field(label, `f_d_${key}`, l[key] || 0, { type: 'number', attrs: 'min="0" max="5" step="1"' })).join('')}
+                    ${DIETAS.map(([key, label]) => field(`${label}${local ? ` (en la carta: ${(l.menu || []).filter(m => (m.dietas || []).includes(key)).length})` : ''}`, `f_d_${key}`, l[`${key}Productos`] || 0, { type: 'number', attrs: 'min="0" max="200" step="1"' })).join('')}
                 </div>
             </section>
 
-            ${l.encuesta ? `
+            ${l.encuesta?.respuestas ? `
             <section class="adm-card">
                 <h2>Respuestas de la encuesta</h2>
-                <p class="adm-help">Importadas el ${esc(new Date(l.encuesta.fecha).toLocaleDateString('es-CL'))} desde ${esc(l.encuesta.archivo)}.</p>
+                <p class="adm-help">${l.encuesta.archivo ? `Importadas desde ${esc(l.encuesta.archivo)}. ` : ''}Para editarlas, ve a "Encuesta a locales".</p>
                 <dl class="adm-survey-answers">
-                    ${Object.entries(l.encuesta.respuestas).filter(([, v]) => String(v ?? '').trim()).map(([q, v]) => `<dt>${esc(q)}</dt><dd>${esc(v)}</dd>`).join('')}
+                    ${Object.entries(l.encuesta.respuestas).filter(([, v]) => String(v ?? '').trim()).map(([q, v]) => `<dt>${esc(banco().find(p => p.id === q)?.texto || q)}</dt><dd>${esc(v)}</dd>`).join('')}
                 </dl>
             </section>` : ''}
 
@@ -154,6 +183,7 @@ function saveForm(event) {
         whatsapp: val('f_whatsapp').replace(/[^0-9]/g, ''),
         instagram: val('f_instagram').replace(/^@/, ''),
         tiktok: val('f_tiktok').replace(/^@/, ''),
+        facebook: val('f_facebook').replace(/^@/, '').replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/.*$/, ''),
         website,
         imagen: val('f_imagen'),
         descripcion: val('f_descripcion'),
@@ -161,12 +191,14 @@ function saveForm(event) {
         lat, lng,
         horariosSemana: horarios,
         caracteristicas: CARACTERISTICAS.filter((_, i) => document.getElementById(`f_c_${i}`).checked),
-        ...Object.fromEntries(DIETAS.map(([key]) => [key, Math.max(0, Math.min(5, Number(val(`f_d_${key}`)) || 0))]))
+        caracteristicasDetalle: Object.fromEntries(CARACTERISTICAS.map((c, i) => [c, val(`f_cd_${i}`)]).filter(([, v]) => v)),
+        ...Object.fromEntries(EXTRAS.map(([key]) => [key, val(`f_x_${key}`)])),
+        ...Object.fromEntries(DIETAS.map(([key]) => [`${key}Productos`, Math.max(0, Number(val(`f_d_${key}`)) || 0)]))
     };
 
     if (editingId === 'nuevo') {
         const id = Math.max(0, ...db.locales.map(l => l.id)) + 1;
-        db.locales.push({ id, notaComida: 0, notaServicio: 0, notaMG: 0, menu: [], promociones: [], eventos: [], distinciones: [], ...datos });
+        db.locales.push({ id, menu: [], promociones: [], eventos: [], distinciones: [], ...datos });
     } else {
         Object.assign(getLocal(editingId), datos);
     }

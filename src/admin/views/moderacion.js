@@ -1,5 +1,5 @@
 // Moderación: reseñas en revisión, fotos sin verificar, videos pendientes y contenido reportado
-import { db, persist, getLocal, recomputeLocalScores } from '../../data/store.js';
+import { db, persist, getLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc, safeUrl } from '../../utils/html.js';
 import { timeAgo } from '../../utils/time.js';
@@ -13,7 +13,8 @@ function reviewBlock(r, motivo, actions) {
     const local = getLocal(r.localId);
     return `
     <article class="adm-mod-item">
-        ${r.fotoComida ? `<img src="${esc(safeUrl(r.fotoComida))}" alt="Foto de la reseña">` : ''}
+        ${(r.fotos || []).length ? `<div class="adm-mod-photos">${r.fotos.map(f => `
+            <figure class="${f.verificada === false ? 'is-doubt' : ''}"><img src="${esc(safeUrl(f.url))}" alt="Foto de ${esc(f.item)}"><figcaption>${esc(f.item)}${f.verificada === false ? ' · sin verificar' : ''}</figcaption></figure>`).join('')}</div>` : ''}
         <div class="adm-mod-body">
             <p><b>${esc(r.usuario.nombre)}</b> en <b>${esc(local?.nombre || '¿?')}</b> · ${esc(timeAgo(r.fecha))}</p>
             ${motivo ? `<p>${statusPill(motivo, 'warn')}</p>` : ''}
@@ -66,7 +67,10 @@ export function renderModeracion() {
                     <div class="adm-mod-body">
                         <p><b>${esc(v.autor)}</b> · ${esc(v.plataforma)} · ${esc(getLocal(v.localId)?.nombre || '')} · ${esc(timeAgo(v.fecha))}</p>
                         <p>${esc(v.descripcion || '')}</p>
-                        ${parsed ? `<p><a href="${esc(parsed.url)}" target="_blank" rel="noopener">Abrir video en ${v.plataforma === 'tiktok' ? 'TikTok' : 'Instagram'} ↗</a></p>` : statusPill('Link inválido', 'warn')}
+                        ${v.motivoRevision ? `<p>${statusPill(v.motivoRevision, 'warn')}</p>` : ''}
+                        ${v.archivoId
+                            ? `${v.portada ? `<img class="adm-video-thumb" src="${esc(safeUrl(v.portada))}" alt="Portada del video">` : ''}<p class="adm-help">Video subido desde la app. Revisa los cuadros y la descripción antes de publicar.</p>`
+                            : parsed ? `<p><a href="${esc(parsed.url)}" target="_blank" rel="noopener">Abrir video en ${v.plataforma === 'tiktok' ? 'TikTok' : 'Instagram'} ↗</a></p>` : statusPill('Link inválido', 'warn')}
                         <div class="adm-row-actions">
                             <button class="adm-btn small primary" data-action="adm-video-approve" data-id="${esc(v.id)}">Publicar</button>
                             <button class="adm-btn small danger" data-action="adm-video-reject" data-id="${esc(v.id)}">Rechazar</button>
@@ -92,8 +96,7 @@ registerActions({
     'adm-review-approve': el => {
         const r = findReview(el.dataset.id);
         r.estado = 'publicada';
-        r.fotoVerificada = true;
-        recomputeLocalScores(r.localId);
+        (r.fotos || []).forEach(f => { f.verificada = true; });
         db.moderation = db.moderation.filter(m => m.reviewId !== r.id);
         done('Reseña publicada');
     },
@@ -106,16 +109,17 @@ registerActions({
     'adm-photo-ok': el => {
         const m = db.moderation.find(x => x.id === el.dataset.id);
         const r = findReview(m.reviewId);
-        if (r) r.fotoVerificada = true;
+        if (r) (r.fotos || []).forEach(f => { f.verificada = true; });
         db.moderation = db.moderation.filter(x => x.id !== m.id);
         done('Foto verificada');
     },
     'adm-photo-remove': el => {
         const m = db.moderation.find(x => x.id === el.dataset.id);
         const r = findReview(m.reviewId);
-        if (r) r.fotoComida = null;
+        // Se quitan solo las fotos que la IA no pudo confirmar
+        if (r) r.fotos = (r.fotos || []).filter(f => f.verificada !== false);
         db.moderation = db.moderation.filter(x => x.id !== m.id);
-        done('Foto quitada de la reseña');
+        done('Fotos dudosas quitadas de la reseña');
     },
     'adm-report-dismiss': el => {
         db.reports.find(r => r.id === el.dataset.id).estado = 'resuelto';
@@ -124,10 +128,7 @@ registerActions({
     'adm-report-remove': el => {
         const rep = db.reports.find(r => r.id === el.dataset.id);
         const r = findReview(rep.reviewId);
-        if (r) {
-            r.estado = 'rechazada';
-            recomputeLocalScores(r.localId);
-        }
+        if (r) r.estado = 'rechazada';
         rep.estado = 'resuelto';
         done('Reseña ocultada');
     },

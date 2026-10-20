@@ -1,19 +1,36 @@
-// Formulario para escribir una reseña con fotos reales de los platos
+// Formulario de reseña: marca lo que consumiste (en el orden de la carta), sube fotos de cada plato o bebestible,
+// pon notas con decimales (0,1 a 10) y el precio aproximado por persona.
 import { state } from '../state.js';
-import { db, persist, getLocal, recomputeLocalScores } from '../data/store.js';
+import { db, persist, getLocal } from '../data/store.js';
+import { cartaLocal } from '../data/metrics.js';
 import { registerActions } from '../ui/actions.js';
 import { showToast } from '../ui/feedback.js';
 import { esc, initials } from '../utils/html.js';
 import { requireAccount } from './auth.js';
-import { userReviews, checkLevelUp } from './gamification.js';
+import { userReviews, checkLevelUp, computeLogros } from './gamification.js';
+import { isSponsored } from './sponsors.js';
 import { compressImage, verifyDishPhoto } from '../services/ai.js';
 import { track } from '../services/analytics.js';
 
-let photos = {};        // índice del plato -> dataURL comprimida
+export const PRECIOS_PERSONA = ['Menos de $5.000', '$5.000 – $10.000', '$10.000 – $15.000', '$15.000 – $25.000', 'Más de $25.000'];
+const MAX_FOTOS_PLATO = 4;
+
+let photos = {};        // índice del plato -> [dataURL, ...]
 let onPublished = () => {};
 
 export function setReviewPublishedHandler(fn) {
     onPublished = fn;
+}
+
+function scoreField(id, label) {
+    return `
+        <div class="score-field">
+            <label for="${id}Num">${label}</label>
+            <div class="score-inputs">
+                <input type="range" id="${id}" min="0.1" max="10" step="0.1" value="7" class="custom-slider" data-input="score-sync" data-target="${id}Num">
+                <input type="number" id="${id}Num" min="0.1" max="10" step="0.1" value="7.0" inputmode="decimal" data-input="score-sync" data-target="${id}" aria-label="${label} (número)">
+            </div>
+        </div>`;
 }
 
 export function openReviewForm(localId) {
@@ -23,7 +40,7 @@ export function openReviewForm(localId) {
     photos = {};
     document.getElementById('reviewModal')?.remove();
 
-    const items = (local.menu || []).filter(m => m.nombre);
+    const items = cartaLocal(local).map(c => c.item);
     const modal = document.createElement('div');
     modal.id = 'reviewModal';
     modal.className = 'detail-view review-modal';
@@ -35,7 +52,7 @@ export function openReviewForm(localId) {
         </header>
         <form id="reviewForm" class="review-form" data-local="${local.id}" novalidate>
             <fieldset>
-                <legend>¿Qué consumiste?</legend>
+                <legend>¿Qué consumiste? <small>Puedes subir fotos de cada plato o bebestible</small></legend>
                 <div class="dish-picker">
                     ${items.map((item, idx) => `
                         <div class="dish-selector-card" id="dishCard_${idx}">
@@ -47,24 +64,26 @@ export function openReviewForm(localId) {
                                 <button type="button" class="dish-counter-btn" data-action="dish-count" data-idx="${idx}" data-diff="-1" aria-label="Menos">−</button>
                                 <span id="dishCount_${idx}" class="dish-count">1</span>
                                 <button type="button" class="dish-counter-btn" data-action="dish-count" data-idx="${idx}" data-diff="1" aria-label="Más">+</button>
-                                <label class="dish-photo-uploader" id="photoLabel_${idx}">
-                                    📸 Foto
-                                    <input type="file" accept="image/*" capture="environment" data-change="dish-photo" data-idx="${idx}" hidden>
+                                <label class="dish-photo-uploader">
+                                    📸 Fotos
+                                    <input type="file" accept="image/*" multiple data-change="dish-photo" data-idx="${idx}" hidden>
                                 </label>
                             </div>
+                            <div class="dish-thumbs" id="dishThumbs_${idx}"></div>
                         </div>
                     `).join('')}
                 </div>
             </fieldset>
 
-            <label for="sliderComida">Comida: <b id="valComida">7.0</b></label>
-            <input type="range" id="sliderComida" min="1" max="10" step="0.5" value="7" class="custom-slider" data-input="score-slider" data-target="valComida">
+            ${scoreField('scoreComida', 'Nota a la comida')}
+            ${scoreField('scoreServicio', 'Nota al servicio')}
 
-            <label for="sliderServicio">Servicio: <b id="valServicio">7.0</b></label>
-            <input type="range" id="sliderServicio" min="1" max="10" step="0.5" value="7" class="custom-slider" data-input="score-slider" data-target="valServicio">
-
-            <label for="reviewSpend">Consumo total aproximado ($)</label>
-            <input type="number" id="reviewSpend" inputmode="numeric" min="0" max="1000000" placeholder="Ej: 15000">
+            <fieldset>
+                <legend>Precio aproximado por persona <small>(opcional)</small></legend>
+                <div class="filter-chips">
+                    ${PRECIOS_PERSONA.map((p, i) => `<label class="chip-radio"><input type="radio" name="precioPersona" value="${esc(p)}" id="precio_${i}"><span>${esc(p)}</span></label>`).join('')}
+                </div>
+            </fieldset>
 
             <label for="reviewText">Tu experiencia</label>
             <textarea id="reviewText" rows="4" maxlength="1000" placeholder="¿Qué tal la comida, la atención y el ambiente?"></textarea>
@@ -83,16 +102,27 @@ function showFormError(message) {
     el.hidden = !message;
 }
 
+function renderThumbs(idx) {
+    const box = document.getElementById(`dishThumbs_${idx}`);
+    box.innerHTML = (photos[idx] || []).map((url, i) => `
+        <span class="dish-thumb"><img src="${url}" alt=""><button type="button" data-action="dish-photo-remove" data-idx="${idx}" data-i="${i}" aria-label="Quitar foto">✕</button></span>`).join('');
+}
+
+function readScore(id) {
+    const v = Number(document.getElementById(`${id}Num`).value);
+    return Math.round(Math.min(10, Math.max(0.1, v || 0.1)) * 10) / 10;
+}
+
 async function submitReview(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const local = getLocal(Number(form.dataset.local));
-    const items = (local.menu || []).filter(m => m.nombre);
+    const items = cartaLocal(local).map(c => c.item);
 
     const seleccion = items
         .map((item, idx) => ({ item, idx, checked: document.getElementById(`checkDish_${idx}`).checked }))
         .filter(s => s.checked);
-    if (!seleccion.length) return showFormError('Marca al menos un plato o producto que consumiste.');
+    if (!seleccion.length) return showFormError('Marca al menos un plato o bebestible que consumiste.');
 
     const comentario = document.getElementById('reviewText').value.trim();
     if (comentario.length < 10) return showFormError('Cuéntanos un poco más (mínimo 10 caracteres).');
@@ -102,44 +132,56 @@ async function submitReview(event) {
     submit.textContent = 'Revisando fotos…';
     showFormError('');
 
-    const productos = seleccion.map(s => `${s.item.nombre} (x${document.getElementById(`dishCount_${s.idx}`).textContent})`);
-    const conFoto = seleccion.find(s => photos[s.idx]);
-    let verificacion = null;
-    if (conFoto) verificacion = await verifyDishPhoto(photos[conFoto.idx], conFoto.item.nombre);
+    const reviewId = `r-${Date.now()}`;
+    const fotos = [];
+    let rechazada = false;
+    const pendientes = [];
+    for (const s of seleccion) {
+        for (const [i, url] of (photos[s.idx] || []).entries()) {
+            const v = await verifyDishPhoto(url, s.item.nombre);
+            if (v.estado === 'rechazada') rechazada = true;
+            if (v.estado !== 'aprobada') pendientes.push(v.motivo);
+            fotos.push({ id: `f-${reviewId}-${s.idx}-${i}`, item: s.item.nombre, url, likes: 0, likedBy: [], verificada: v.estado === 'aprobada' });
+        }
+    }
 
     const previousCount = userReviews().length;
+    const previousLogros = computeLogros();
+    const ahora = new Date();
+    const hhmm = ahora.toTimeString().slice(0, 5);
+    const promoActiva = (local.promociones || []).some(p => (p.dias || []).includes(ahora.getDay()) && (!p.horaInicio || hhmm >= p.horaInicio) && (!p.horaFin || hhmm <= p.horaFin));
     const review = {
-        id: `r-${Date.now()}`,
-        usuario: { id: state.user.id, nombre: state.user.nombre, avatar: initials(state.user.nombre) },
+        id: reviewId,
+        usuario: { id: state.user.id, nombre: state.user.nombre, username: state.user.username, avatar: initials(state.user.nombre) },
         fecha: new Date().toISOString(),
         localId: local.id,
-        productos,
-        fotoComida: conFoto ? photos[conFoto.idx] : null,
-        fotoVerificada: verificacion?.estado === 'aprobada',
-        notaComida: Number(document.getElementById('sliderComida').value),
-        notaServicio: Number(document.getElementById('sliderServicio').value),
+        productos: seleccion.map(s => `${s.item.nombre} (x${document.getElementById(`dishCount_${s.idx}`).textContent})`),
+        fotos,
+        notaComida: readScore('scoreComida'),
+        notaServicio: readScore('scoreServicio'),
+        precioPersona: form.querySelector('input[name="precioPersona"]:checked')?.value || null,
         comentario,
-        spend: Number(document.getElementById('reviewSpend').value) || null,
         likes: 0,
         likedBy: [],
         isDrink: seleccion.every(s => s.item.isDrink),
-        estado: verificacion?.estado === 'rechazada' ? 'pendiente' : 'publicada'
+        // Para la misión "Cazador de promociones"
+        enPromocion: isSponsored(local) || promoActiva,
+        estado: rechazada ? 'pendiente' : 'publicada'
     };
 
     db.reviews.unshift(review);
-    if (verificacion && verificacion.estado !== 'aprobada') {
-        db.moderation.unshift({ id: `mod-${Date.now()}`, tipo: 'foto', reviewId: review.id, motivo: verificacion.motivo, fecha: review.fecha });
+    if (pendientes.length) {
+        db.moderation.unshift({ id: `mod-${Date.now()}`, tipo: 'foto', reviewId: review.id, motivo: pendientes[0], fecha: review.fecha });
     }
-    if (review.estado === 'publicada') recomputeLocalScores(local.id);
     persist();
-    track('resena_publicada', { localId: local.id, conFoto: !!conFoto, estado: review.estado });
+    track('resena_publicada', { localId: local.id, fotos: fotos.length, estado: review.estado });
 
     document.getElementById('reviewModal').remove();
     if (review.estado === 'pendiente') {
-        showToast('La foto no parece corresponder al plato. Tu reseña quedó en revisión.', 4500);
+        showToast('Una foto no parece corresponder al plato. Tu reseña quedó en revisión.', 4500);
     } else {
         showToast('¡Reseña publicada! Gracias por tu aporte.');
-        checkLevelUp(previousCount);
+        checkLevelUp(previousCount, previousLogros);
     }
     onPublished(local.id);
 }
@@ -156,19 +198,29 @@ registerActions({
         span.textContent = Math.max(1, Math.min(20, Number(span.textContent) + Number(el.dataset.diff)));
     },
     'dish-photo': async el => {
-        const file = el.files[0];
-        if (!file) return;
-        if (file.size > 15 * 1024 * 1024) return showToast('La foto pesa más de 15 MB. Elige otra.');
-        const label = document.getElementById(`photoLabel_${el.dataset.idx}`);
-        try {
-            photos[el.dataset.idx] = await compressImage(file);
-            label.classList.add('uploaded');
-            label.firstChild.textContent = '✅ Foto lista ';
-        } catch (err) {
-            showToast(err.message);
+        const idx = el.dataset.idx;
+        const files = [...el.files];
+        el.value = '';
+        photos[idx] = photos[idx] || [];
+        for (const file of files) {
+            if (photos[idx].length >= MAX_FOTOS_PLATO) { showToast(`Máximo ${MAX_FOTOS_PLATO} fotos por plato.`); break; }
+            if (file.size > 15 * 1024 * 1024) { showToast('Una foto pesa más de 15 MB y no se agregó.'); continue; }
+            try {
+                photos[idx].push(await compressImage(file));
+            } catch (err) {
+                showToast(err.message);
+            }
         }
+        renderThumbs(idx);
     },
-    'score-slider': el => {
-        document.getElementById(el.dataset.target).textContent = Number(el.value).toFixed(1);
+    'dish-photo-remove': el => {
+        photos[el.dataset.idx].splice(Number(el.dataset.i), 1);
+        renderThumbs(el.dataset.idx);
+    },
+    // El deslizador y el número se mantienen sincronizados (pasos de 0,1)
+    'score-sync': el => {
+        const other = document.getElementById(el.dataset.target);
+        const v = Math.min(10, Math.max(0.1, Number(el.value) || 0.1));
+        other.value = other.type === 'number' ? v.toFixed(1) : v;
     }
 });

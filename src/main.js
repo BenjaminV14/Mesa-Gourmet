@@ -29,6 +29,8 @@ function enterApp({ withSplash = true } = {}) {
         document.getElementById('mainContent').classList.remove('hidden');
         document.getElementById('bottomNav').classList.remove('hidden');
         updateHeader();
+        // Las necesidades alimentarias guardadas en el perfil se aplican como filtro
+        if (state.user && !state.isGuest && state.user.preferencias?.dietas?.length) state.filtros.dietas = [...state.user.preferencias.dietas];
         setupNavigation();
         switchTab('inicio');
         requestLocation();

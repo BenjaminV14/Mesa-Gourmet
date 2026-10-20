@@ -1,7 +1,7 @@
 // Inicio de sesión y registro.
 // DEMO: no hay servidor, así que la cuenta se guarda solo en este navegador y la contraseña NO se guarda.
 // Con Supabase (docs/SUPABASE.md) esto pasa a ser registro real con verificación por correo.
-import { state, isLoggedIn } from '../state.js';
+import { state, isLoggedIn, normalizeUser } from '../state.js';
 import { saveSession } from '../data/store.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
@@ -50,15 +50,14 @@ function handleSubmit(event) {
     }
 
     const previous = state.user && state.user.email === email ? state.user : null;
-    state.user = previous || {
+    state.user = normalizeUser(previous || {
         id: email,
         email,
         nombre: nombre || email.split('@')[0],
-        favoritos: [],
         productoFavorito: null,
         bienvenidaVista: false,
         creado: new Date().toISOString()
-    };
+    });
     if (nombre) state.user.nombre = nombre;
     state.isGuest = false;
     saveSession(state.user);

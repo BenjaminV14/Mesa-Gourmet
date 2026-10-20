@@ -11,16 +11,20 @@ import { renderModeracion, setModeracionRerender } from './views/moderacion.js';
 import { renderReportes, setReportesHandlers } from './views/reportes.js';
 import { renderUsuarios, setUsuariosRerender } from './views/usuarios.js';
 import { renderEncuesta, setEncuestaRerender } from './views/encuesta.js';
+import { renderMapaAdmin } from './views/mapa.js';
+import { renderMetricas, setMetricasRerender } from './views/metricas.js';
 
 const VIEWS = {
     resumen: { label: 'Resumen', icon: '📊', render: renderResumen },
     locales: { label: 'Locales', icon: '🏪', render: renderLocales },
+    mapa: { label: 'Mapa de ubicaciones', icon: '🗺️', render: renderMapaAdmin },
     cartas: { label: 'Cartas', icon: '📋', render: renderCartas },
-    encuesta: { label: 'Importar encuesta', icon: '📥', render: renderEncuesta },
+    encuesta: { label: 'Encuesta a locales', icon: '📝', render: renderEncuesta },
     patrocinios: { label: 'Destacados', icon: '★', render: renderPatrocinios },
     eventos: { label: 'Eventos y promos', icon: '📅', render: renderEventos },
     moderacion: { label: 'Moderación', icon: '🛡️', render: renderModeracion, badge: () => db.reviews.filter(r => r.estado === 'pendiente').length + db.moderation.length + db.videos.filter(v => v.estado === 'pendiente').length + db.reports.filter(r => r.tipo === 'resena' && r.estado === 'abierto').length },
     reportes: { label: 'Reportes', icon: '⚠️', render: renderReportes, badge: () => db.reports.filter(r => r.tipo !== 'resena' && r.estado === 'abierto').length },
+    metricas: { label: 'Top y clientes', icon: '🏆', render: renderMetricas },
     usuarios: { label: 'Usuarios y datos', icon: '👥', render: renderUsuarios }
 };
 
@@ -51,7 +55,7 @@ function go(view, localId = null) {
     window.scrollTo(0, 0);
 }
 
-[setLocalesRerender, setCartasRerender, setEncuestaRerender, setPatrociniosRerender, setEventosRerender, setModeracionRerender, setUsuariosRerender]
+[setLocalesRerender, setCartasRerender, setEncuestaRerender, setPatrociniosRerender, setEventosRerender, setModeracionRerender, setUsuariosRerender, setMetricasRerender]
     .forEach(set => set(render));
 setReportesHandlers(render, go);
 
@@ -59,12 +63,18 @@ registerActions({
     'adm-go': el => go(el.dataset.view)
 });
 
+// Permite volver con el botón atrás o abrir una sección por link (admin.html#encuesta)
+window.addEventListener('hashchange', () => {
+    const view = location.hash.slice(1);
+    if (view in VIEWS && view !== current) go(view);
+});
+
 // Si la app cambia los datos en otra pestaña (por ejemplo, llega una reseña), se refresca el panel
-window.addEventListener('storage', e => {
-    if (e.key === 'mg:v2:data' && e.newValue) {
-        Object.assign(db, JSON.parse(e.newValue));
-        render();
-    }
+// (no se redibuja mientras escribes en un formulario, para no perder lo que estás escribiendo)
+window.addEventListener('mg:data-changed', () => {
+    const activo = document.activeElement;
+    if (activo && activo.closest('#admMain') && /INPUT|TEXTAREA|SELECT/.test(activo.tagName)) renderNav();
+    else render();
 });
 
 render();

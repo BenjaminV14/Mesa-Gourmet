@@ -3,17 +3,23 @@ import readExcelFile from 'read-excel-file/browser';
 import { db, persist } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
-import { TALCA_CENTER } from '../../state.js';
 import { TARGETS, guessTarget, sheetsToResponses, parseCsv, planImport } from '../survey.js';
 import { toast, statusPill } from '../ui.js';
+import { renderResponder, renderPreguntas, preguntaPorTexto, crearLocal, setEncuestaFormRerender } from './encuesta-form.js';
 
 let step = 'subir';      // subir -> asignar -> revisar
 let archivo = null;      // { nombre, formato, preguntas, respuestas }
 let mapping = {};
 let plan = [];
 let rerender = () => {};
+let tab = 'responder';   // responder | preguntas | importar
 
-export function setEncuestaRerender(fn) { rerender = fn; }
+export function setEncuestaRerender(fn) { rerender = fn; setEncuestaFormRerender(fn); }
+
+// Usa el dato del banco de preguntas si el encabezado coincide; si no, lo adivina
+function targetFor(pregunta) {
+    return preguntaPorTexto(pregunta)?.uso || guessTarget(pregunta);
+}
 
 async function readFile(file) {
     if (/\.csv$/i.test(file.name)) return parseCsv(await file.text());
@@ -103,12 +109,26 @@ function renderRevisar() {
         </section>`;
 }
 
+const TABS = [
+    ['responder', '✍️ Responder por local'],
+    ['preguntas', '📝 Preguntas'],
+    ['importar', '📥 Importar Excel']
+];
+
+function renderImportar() {
+    return `
+        <p class="adm-help">Carga las respuestas de los dueños desde Excel: baños, WiFi, zona de fumadores, mascotas, horarios, contacto y más.
+        Si los encabezados coinciden con tu banco de preguntas, se usa el dato que elegiste ahí.</p>
+        ${step === 'subir' ? renderSubir() : step === 'asignar' ? renderAsignar() : renderRevisar()}`;
+}
+
 export function renderEncuesta() {
     return `
-        <h1 class="adm-title">Importar encuesta</h1>
-        <p class="adm-help">Carga las respuestas de los dueños de locales: baños, WiFi, zona de fumadores, mascotas, horarios, contacto y más.
-        Cada respuesta se convierte en la etiqueta que se muestra en la ficha y que usa el buscador.</p>
-        ${step === 'subir' ? renderSubir() : step === 'asignar' ? renderAsignar() : renderRevisar()}
+        <h1 class="adm-title">Encuesta a locales</h1>
+        <div class="adm-tabs" role="tablist">
+            ${TABS.map(([k, label]) => `<button class="adm-tab ${tab === k ? 'active' : ''}" role="tab" aria-selected="${tab === k}" data-action="adm-survey-tab" data-tab="${k}">${label}</button>`).join('')}
+        </div>
+        ${tab === 'responder' ? renderResponder() : tab === 'preguntas' ? renderPreguntas() : renderImportar()}
     `;
 }
 
@@ -116,19 +136,14 @@ function applyPlan() {
     let creados = 0, actualizados = 0;
     const fecha = new Date().toISOString();
     for (const p of plan.filter(x => x.aplicable)) {
-        const encuesta = { fecha, archivo: archivo.nombre, respuestas: Object.fromEntries(Object.entries(p.respuestas).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : v])) };
+        // Las respuestas que coinciden con el banco se guardan por pregunta, así aparecen en "Responder por local"
+        const nuevas = Object.fromEntries(Object.entries(p.respuestas).map(([k, v]) => [preguntaPorTexto(k)?.id || k, v instanceof Date ? v.toISOString() : v]));
         if (p.existente) {
-            Object.assign(p.existente, p.resultado, { encuesta });
+            const previas = p.existente.encuesta?.respuestas || {};
+            Object.assign(p.existente, p.resultado, { encuesta: { fecha, archivo: archivo.nombre, respuestas: { ...previas, ...nuevas } } });
             actualizados++;
         } else {
-            const id = Math.max(0, ...db.locales.map(l => l.id)) + 1;
-            db.locales.push({
-                id, nombre: p.nombre, tipo: 'Restaurante', lat: TALCA_CENTER.lat, lng: TALCA_CENTER.lng,
-                notaComida: 0, notaServicio: 0, notaMG: 0, menu: [], promociones: [], eventos: [], distinciones: [], etiquetas: [],
-                horariosSemana: { Lunes: 'Cerrado', Martes: 'Cerrado', Miércoles: 'Cerrado', Jueves: 'Cerrado', Viernes: 'Cerrado', Sábado: 'Cerrado', Domingo: 'Cerrado' },
-                vegano: 0, vegetariano: 0, sinGluten: 0, sinLactosa: 0,
-                ...p.resultado, encuesta
-            });
+            crearLocal(p.nombre, { ...p.resultado, encuesta: { fecha, archivo: archivo.nombre, respuestas: nuevas } });
             creados++;
         }
     }
@@ -141,6 +156,7 @@ function applyPlan() {
 }
 
 registerActions({
+    'adm-survey-tab': el => { tab = el.dataset.tab; rerender(); },
     'adm-survey-file': async el => {
         const file = el.files[0];
         if (!file) return;
@@ -149,7 +165,7 @@ registerActions({
             const parsed = sheetsToResponses(sheets);
             if (!parsed.respuestas.length) throw new Error('vacío');
             archivo = { nombre: file.name, ...parsed };
-            mapping = Object.fromEntries(archivo.preguntas.map(p => [p, guessTarget(p)]));
+            mapping = Object.fromEntries(archivo.preguntas.map(p => [p, targetFor(p)]));
             step = 'asignar';
             rerender();
         } catch (err) {

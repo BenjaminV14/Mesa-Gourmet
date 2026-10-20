@@ -17,7 +17,14 @@ export const CARACTERISTICAS_KEYWORDS = {
     'Venta de Alcohol': ['alcohol', 'alcoholicas', 'patente de alcohol', 'cerveza', 'vino', 'tragos'],
     'Apto para Fumadores (Solo en Terraza)': ['fumador', 'fumadores', 'fumar', 'cigarro'],
     'Acepta Edenred / BAES': ['edenred', 'baes', 'junaeb', 'cheque restaurant', 'ticket restaurant', 'sodexo', 'pluxee'],
-    'Delivery': ['delivery', 'despacho', 'reparto', 'envio a domicilio']
+    'Delivery': ['delivery', 'despacho', 'reparto', 'envio a domicilio'],
+    'Apto para menores de edad': ['menores de 18', 'menores de edad', 'ninos'],
+    'Acepta reservas': ['reservar alguna mesa', 'reservar mesa', 'reserva de mesa', 'reservas'],
+    'Arriendo para eventos': ['reservar el local', 'arriendo del local', 'arrendar el local'],
+    'Segundo piso': ['segundo piso'],
+    'Barra': ['barra'],
+    'Pedidos para llevar': ['realizar pedidos', 'para llevar', 'retiro en local'],
+    'Consumo en el local': ['ingresar al local', 'consumo en el local', 'comer en el local']
 };
 
 const DIETA_KEYWORDS = {
@@ -43,12 +50,30 @@ export const TARGETS = [
     { id: 'tiktok', label: 'TikTok', keywords: ['tiktok', 'tik tok'] },
     { id: 'website', label: 'Sitio web', keywords: ['sitio web', 'pagina web', 'web'] },
     { id: 'descripcion', label: 'Descripción', keywords: ['descripcion', 'describa', 'describe', 'cuentenos', 'cuentanos'] },
+    { id: 'slogan', label: 'Slogan o frase del local', keywords: ['slogan', 'eslogan', 'refran', 'frase del local', 'lema'] },
+    { id: 'facebook', label: 'Facebook', keywords: ['facebook'] },
+    { id: 'referencia', label: 'Punto de referencia', keywords: ['punto de referencia', 'referencia'] },
+    { id: 'horarioFeriados', label: 'Horario en feriados', keywords: ['feriados', 'festividades'] },
+    { id: 'mediosPago', label: 'Medios de pago', keywords: ['medios de pago', 'formas de pago', 'metodos de pago'] },
+    { id: 'capacidad', label: 'Capacidad (personas o mesas)', keywords: ['capacidad'] },
+    { id: 'ambiente', label: 'Ambiente / tipo de público', keywords: ['tipo de publico', 'publico que se concentra'] },
+    { id: 'tematica', label: 'Temática o decoración', keywords: ['tematica', 'decoracion'] },
+    { id: 'horasPeak', label: 'Horas con más público', keywords: ['horas pick', 'horas peak', 'hora peak', 'afluencia'] },
+    { id: 'diasPeak', label: 'Días con más público', keywords: ['dias son los que reciben', 'mayor cantidad de publico'] },
+    { id: 'notaAcceso', label: 'Restricciones para llegar o ingresar', keywords: ['restriccion para ingresar', 'restriccion para llegar', 'restriccion'] },
     { id: 'etiquetas', label: 'Palabras clave (buscador)', keywords: ['especialidad', 'especialidades', 'palabras clave', 'plato estrella', 'platos estrella', 'plato principal'] },
     { id: 'horario', label: 'Horario (toda la semana o por días)', keywords: ['horario', 'horarios', 'hora de atencion', 'atencion al publico'] },
     ...DIAS.map((d, i) => ({ id: `horario:${i}`, label: `Horario del ${d.toLowerCase()}`, keywords: [`horario ${normalize(d)}`, `${normalize(d)}`] })),
     ...Object.entries(CARACTERISTICAS_KEYWORDS).map(([c, keywords]) => ({ id: `car:${c}`, label: `Característica: ${c}`, keywords })),
     { id: 'car:Ingreso de Mascotas', label: 'Característica: Ingreso de Mascotas (en todo el local)', keywords: [] },
-    ...Object.entries(DIETA_KEYWORDS).map(([k, keywords]) => ({ id: `dieta:${k}`, label: `Opción dietética: ${{ vegano: 'Vegano', vegetariano: 'Vegetariano', sinGluten: 'Sin gluten', sinLactosa: 'Sin lactosa' }[k]}`, keywords }))
+    // Característica con detalle: "Sí, clave: carlota123" -> WiFi + muestra la clave al tocarla
+    { id: 'det:WiFi Disponible', label: 'WiFi + clave (detalle)', keywords: ['clave del wifi', 'contrasena del wifi', 'clave wifi'] },
+    { id: 'det:Delivery', label: 'Delivery + con qué empresas (detalle)', keywords: ['empresa de delivery'] },
+    { id: 'det:Acepta Edenred / BAES', label: 'JUNAEB / Edenred + cómo (detalle)', keywords: ['junaeb'] },
+    { id: 'det:Estacionamiento', label: 'Estacionamiento + dónde (detalle)', keywords: [] },
+    { id: 'det:Acepta reservas', label: 'Reservas + teléfono (detalle)', keywords: [] },
+    { id: 'interno', label: '🔒 Solo para mí (no se muestra en la app)', keywords: [] },
+    ...Object.entries(DIETA_KEYWORDS).map(([k, keywords]) => ({ id: `dietaN:${k}`, label: `Platos ${{ vegano: 'veganos', vegetariano: 'vegetarianos', sinGluten: 'sin gluten (celíacos)', sinLactosa: 'sin lactosa' }[k]} (cantidad o sí/no)`, keywords })),
 ];
 
 function containsWord(text, keyword) {
@@ -159,7 +184,10 @@ function dietValue(value) {
 const ETIQUETAS_CAMPOS = {
     tipo: 'Tipo', direccion: 'Dirección', telefono: 'Teléfono', whatsapp: 'WhatsApp', instagram: 'Instagram',
     tiktok: 'TikTok', website: 'Sitio web', descripcion: 'Descripción', etiquetas: 'Palabras clave', lat: 'Latitud', lng: 'Longitud',
-    vegano: 'Vegano', vegetariano: 'Vegetariano', sinGluten: 'Sin gluten', sinLactosa: 'Sin lactosa'
+    vegano: 'Vegano', vegetariano: 'Vegetariano', sinGluten: 'Sin gluten', sinLactosa: 'Sin lactosa',
+    veganoProductos: 'Platos veganos', vegetarianoProductos: 'Platos vegetarianos', sinGlutenProductos: 'Platos sin gluten', sinLactosaProductos: 'Platos sin lactosa',
+    slogan: 'Slogan', facebook: 'Facebook', referencia: 'Punto de referencia', horarioFeriados: 'Horario feriados', mediosPago: 'Medios de pago',
+    capacidad: 'Capacidad', ambiente: 'Ambiente', tematica: 'Temática', horasPeak: 'Horas con más público', diasPeak: 'Días con más público', notaAcceso: 'Para llegar'
 };
 
 const cellText = v => (v instanceof Date ? v.toLocaleDateString('es-CL') : String(v ?? '').trim());
@@ -230,6 +258,7 @@ export function planImport(responses, mapping, locales) {
         const agregar = new Set();
         const quitar = new Set();
         const dietas = {};
+        const detalles = {};
         let horario = {};
 
         for (const [pregunta, target] of Object.entries(mapping)) {
@@ -237,7 +266,27 @@ export function planImport(responses, mapping, locales) {
             const texto = cellText(valor);
             if (target === 'ignorar' || target === 'nombre' || texto === '') continue;
 
-            if (['tipo', 'direccion', 'telefono', 'descripcion', 'website'].includes(target)) datos[target] = texto;
+            if (target === 'interno') continue;
+            if (['tipo', 'direccion', 'telefono', 'descripcion', 'website', 'slogan', 'referencia', 'horarioFeriados', 'mediosPago', 'capacidad', 'ambiente', 'tematica', 'horasPeak', 'diasPeak', 'notaAcceso'].includes(target)) datos[target] = texto;
+            else if (target === 'facebook') datos.facebook = texto.replace(/^@/, '').replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/.*$/, '');
+            else if (target.startsWith('det:')) {
+                const car = target.slice(4);
+                const yn = parseYesNo(valor);
+                // El detalle es la respuesta sin el "sí," inicial
+                const detalle = texto.replace(/^(s[ií]|yes|x)\s*[,.:;-]?\s*/i, '').trim();
+                if (yn === false) quitar.add(car);
+                else if (yn === true || detalle) {
+                    agregar.add(car);
+                    if (detalle && parseYesNo(detalle) === null) detalles[car] = detalle.charAt(0).toUpperCase() + detalle.slice(1);
+                }
+            } else if (target.startsWith('dietaN:')) {
+                const key = target.slice(7);
+                const num = texto.match(/\d+/);
+                const yn = parseYesNo(valor);
+                const n = num ? Number(num[0]) : yn === true ? 1 : yn === false ? 0 : null;
+                if (n === null) avisos.push(`No se entendió cuántos platos ${key}: "${texto.slice(0, 40)}"`);
+                else dietas[`${key}Productos`] = n;
+            }
             else if (target === 'whatsapp') datos.whatsapp = texto.replace(/[^0-9]/g, '');
             else if (target === 'instagram' || target === 'tiktok') datos[target] = texto.replace(/^@/, '').replace(/^https?:\/\/(www\.)?(instagram|tiktok)\.com\/@?/, '').replace(/\/.*$/, '');
             else if (target === 'etiquetas') datos.etiquetas = texto.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
@@ -258,7 +307,11 @@ export function planImport(responses, mapping, locales) {
                 const n = normalize(texto);
                 // "Sí, pero solo en terraza" / "Sí, en todo el local"
                 if (car.startsWith('Mascotas') && yn && !/terraza|afuera|exterior/.test(n) && /todo|interior|adentro/.test(n)) car = 'Ingreso de Mascotas';
-                if (yn === true) agregar.add(car);
+                if (yn === true) {
+                    agregar.add(car);
+                    const extra = texto.replace(/^(s[ií]|yes|x)\s*[,.:;-]?\s*/i, '').trim();
+                    if (extra && parseYesNo(extra) === null) detalles[car] = extra.charAt(0).toUpperCase() + extra.slice(1);
+                }
                 else if (yn === false) quitar.add(car);
                 else if (/terraza|afuera|exterior/.test(n) && (car.startsWith('Mascotas') || car.startsWith('Apto para Fumadores'))) agregar.add(car);
                 else avisos.push(`Respuesta poco clara para "${car}": "${texto.slice(0, 40)}"`);
@@ -278,7 +331,8 @@ export function planImport(responses, mapping, locales) {
         agregar.forEach(c => { if (!(base.caracteristicas || []).includes(c)) cambios.push(`+ ${c}`); });
         quitar.forEach(c => { if ((base.caracteristicas || []).includes(c)) cambios.push(`− ${c}`); });
         Object.entries(datos).forEach(([k, v]) => { if (JSON.stringify(base[k]) !== JSON.stringify(v)) cambios.push(`${ETIQUETAS_CAMPOS[k] || k}: ${Array.isArray(v) ? v.join(', ') : v}`); });
-        Object.entries(dietas).forEach(([k, v]) => { if (base[k] !== v) cambios.push(`${ETIQUETAS_CAMPOS[k]}: ${v}/5`); });
+        Object.entries(dietas).forEach(([k, v]) => { if (base[k] !== v) cambios.push(`${ETIQUETAS_CAMPOS[k] || k}: ${k.endsWith('Productos') ? `${v} platos` : `${v}/5`}`); });
+        Object.entries(detalles).forEach(([k, v]) => { if ((base.caracteristicasDetalle || {})[k] !== v) cambios.push(`${k} → ${v}`); });
         if (horariosSemana) {
             Object.entries(horariosSemana).forEach(([d, v]) => { if ((base.horariosSemana || {})[d] !== v) cambios.push(`${d}: ${v}`); });
         }
@@ -288,7 +342,11 @@ export function planImport(responses, mapping, locales) {
         return {
             fila, nombre, existente, cambios, avisos,
             aplicable: !!nombre,
-            resultado: { ...datos, ...dietas, caracteristicas, ...(horariosSemana ? { horariosSemana } : {}) },
+            resultado: {
+                ...datos, ...dietas, caracteristicas,
+                caracteristicasDetalle: { ...(base.caracteristicasDetalle || {}), ...detalles },
+                ...(horariosSemana ? { horariosSemana } : {})
+            },
             respuestas
         };
     });

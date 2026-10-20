@@ -25,8 +25,30 @@ export async function verifyDishPhoto(imageDataUrl, dishName) {
     }
 }
 
+const MODERATE_URL = import.meta.env?.VITE_VIDEO_MODERATION_URL;
+
+/**
+ * Revisa con IA tres cuadros del video (inicio, mitad y final) para detectar contenido inapropiado.
+ * Sin servidor conectado, el video queda pendiente para que lo revises en el panel.
+ */
+export async function moderateVideoFrames(frames) {
+    if (!MODERATE_URL) return { estado: 'revision', motivo: 'Revisión manual (la revisión con IA se activa al conectar el servidor).' };
+    try {
+        const response = await fetch(MODERATE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frames })
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+    } catch (err) {
+        console.warn('No se pudo revisar el video:', err);
+        return { estado: 'revision', motivo: 'No se pudo revisar automáticamente; lo verá un moderador.' };
+    }
+}
+
 // Reduce la foto antes de subirla (máx. 1024 px, JPEG) para ahorrar datos y almacenamiento
-export function compressImage(file, maxSize = 1024, quality = 0.75) {
+export function compressImage(file, maxSize = 900, quality = 0.72) {
     return new Promise((resolve, reject) => {
         if (!file.type.startsWith('image/')) return reject(new Error('El archivo no es una imagen.'));
         const reader = new FileReader();

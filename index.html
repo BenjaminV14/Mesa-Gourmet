@@ -22,7 +22,7 @@
             <div class="glass-card login-card">
                 <div class="login-brand">
                     <div class="logo-container logo-animate">
-                        <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="Mesa Gourmet" class="brand-logo">
+                        <img src="/src/assets/logo-mesa-gourmet.jpg" alt="Mesa Gourmet" class="brand-logo">
                     </div>
                     <h1 class="brand-title">Mesa Gourmet</h1>
                     <p class="subtitle">Guía gastronómica de Talca</p>
@@ -73,7 +73,7 @@
         <div id="splashScreen" class="splash-screen hidden">
             <div class="splash-content">
                 <div class="logo-container logo-animate">
-                    <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="" class="brand-logo">
+                    <img src="/src/assets/logo-mesa-gourmet.jpg" alt="" class="brand-logo">
                 </div>
                 <h1 class="brand-title">Mesa Gourmet</h1>
                 <p class="brand-subtitle">Cocinando experiencias en Talca</p>
@@ -84,7 +84,7 @@
         <header id="mainHeader" class="app-header hidden">
             <div class="header-top glass-panel">
                 <button class="header-brand" data-action="nav" data-tab="inicio" aria-label="Ir al inicio">
-                    <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="" class="mini-logo">
+                    <img src="/src/assets/logo-mesa-gourmet.jpg" alt="" class="mini-logo">
                     <h2>Mesa Gourmet</h2>
                 </button>
                 <button class="profile-btn nav-tab" data-action="nav" data-tab="perfil">
@@ -96,36 +96,9 @@
             <div class="search-container">
                 <div class="search-input-wrapper glass-panel">
                     <span class="search-icon" aria-hidden="true">🔍</span>
-                    <input type="search" id="searchInput" placeholder="Busca locales, platos o características…" autocomplete="off" aria-label="Buscar">
+                    <input type="search" id="searchInput" placeholder="¿Qué se te antoja hoy?" autocomplete="off" aria-label="Buscar locales, platos o características" enterkeyhint="search">
                 </div>
-                <div id="searchOptionsPanel" class="search-panel hidden glass-panel">
-                    <div class="panel-section">
-                        <h3>Categorías</h3>
-                        <div class="quick-grid">
-                            <button class="search-option" data-action="quick-search" data-search="todo">🍽️ Todo</button>
-                            <button class="search-option" data-action="quick-search" data-search="restaurantes">🏪 Restaurantes</button>
-                            <button class="search-option" data-action="quick-search" data-search="café">☕ Cafeterías</button>
-                            <button class="search-option" data-action="quick-search" data-search="comida rápida">🍔 Comida rápida</button>
-                        </div>
-                        <h3>Tipos de comida</h3>
-                        <div class="quick-pills">
-                            <button class="search-option-pill" data-action="quick-search" data-search="sushi">🍣 Sushi</button>
-                            <button class="search-option-pill" data-action="quick-search" data-search="pasta">🍝 Pasta</button>
-                            <button class="search-option-pill" data-action="quick-search" data-search="completo">🌭 Completos</button>
-                            <button class="search-option-pill" data-action="quick-search" data-search="empanadas">🥟 Empanadas</button>
-                            <button class="search-option-pill" data-action="quick-search" data-search="ceviche">🦐 Ceviche</button>
-                        </div>
-                        <h3>Características</h3>
-                        <div class="quick-grid">
-                            <button class="search-option" data-action="quick-search" data-search="vegetariano">🥬 Vegetariano</button>
-                            <button class="search-option" data-action="quick-search" data-search="wifi">📶 WiFi</button>
-                            <button class="search-option" data-action="quick-search" data-search="terraza">🪑 Terraza</button>
-                            <button class="search-option" data-action="quick-search" data-search="mascotas">🐾 Pet-friendly</button>
-                            <button class="search-option" data-action="quick-search" data-search="calefacción">🔥 Calefacción</button>
-                            <button class="search-option" data-action="quick-search" data-search="alcohol">🍺 Venta de alcohol</button>
-                        </div>
-                    </div>
-                </div>
+                <div id="searchOptionsPanel" class="search-panel hidden glass-panel" role="listbox" aria-label="Sugerencias de búsqueda"></div>
             </div>
         </header>
 
@@ -137,26 +110,10 @@
         </div>
         <div id="detailBackdrop" class="detail-backdrop" data-action="close-local" aria-hidden="true"></div>
 
-        <!-- Filtros dietéticos -->
-        <div id="filterModal" class="detail-view filter-modal hidden" role="dialog" aria-modal="true" aria-labelledby="filterTitle">
-            <div class="detail-header filter-header">
-                <button class="back-btn" data-action="close-filters">✕ Cerrar</button>
-                <h1 id="filterTitle">Preferencias</h1>
-                <p>Filtra los locales que ves en el inicio</p>
-            </div>
-            <div class="filter-body">
-                <p class="filter-label">Restricciones alimentarias</p>
-                <button id="dietBtn_vegano" class="diet-btn" data-action="toggle-diet" data-diet="vegano" aria-pressed="false">🌱 Vegano</button>
-                <button id="dietBtn_celiaco" class="diet-btn" data-action="toggle-diet" data-diet="celiaco" aria-pressed="false">🌾 Celíaco (sin gluten)</button>
-                <button id="dietBtn_sinLactosa" class="diet-btn" data-action="toggle-diet" data-diet="sinLactosa" aria-pressed="false">🥛 Sin lactosa</button>
-                <button class="btn btn-primary filter-apply" data-action="close-filters">Aplicar 🎛️</button>
-            </div>
-        </div>
-
         <!-- Barra inferior -->
         <nav id="bottomNav" class="bottom-nav hidden glass-panel" aria-label="Secciones">
             <button class="nav-brand" data-action="nav" data-tab="inicio" aria-label="Mesa Gourmet, ir al inicio">
-                <img src="https://pfst.cf2.poecdn.net/base/image/156c78ce329a21ed91b4284f32fbbd517dc2a869bde0f5b06e3e0de06efc6d35?w=500&h=500" alt="" class="mini-logo">
+                <img src="/src/assets/logo-mesa-gourmet.jpg" alt="" class="mini-logo">
                 <span><b>Mesa Gourmet</b><small>Guía gastronómica de Talca</small></span>
             </button>
             <div class="nav-items">

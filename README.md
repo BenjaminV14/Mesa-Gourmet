@@ -52,12 +52,22 @@ supabase/
 docs/                   Guías: Supabase, seguridad, legal, hosting
 ```
 
-## Importar la encuesta a los locales
+## Encuesta a los locales
 
-Panel de administración → **Importar encuesta**. Sube el Excel (.xlsx) o CSV con las respuestas:
-una fila por local y una columna por pregunta (lo que descarga Google Forms), o una hoja por local con Pregunta | Respuesta.
-El panel sugiere a qué dato corresponde cada pregunta (baños, WiFi, fumadores, mascotas, horario, contacto...),
-muestra los cambios antes de guardarlos y deja las respuestas originales en la ficha del local.
+Panel de administración → **Encuesta a locales**, con tres pestañas:
+
+- **Responder por local**: eliges el local y escribes las respuestas del dueño mientras conversas con él.
+  Se guarda solo, y las preguntas conectadas a la app (baño, WiFi y su clave, fumadores, horario, Instagram, slogan...)
+  actualizan la ficha del local al instante. Las marcadas 🔒 quedan solo para ti.
+- **Preguntas**: tu banco de preguntas. Edita el texto, usa la redacción sugerida, cambia la sección o a qué dato va cada una.
+- **Importar Excel**: sube el .xlsx o CSV (una fila por local, como lo descarga Google Forms, o una hoja por local con Pregunta | Respuesta).
+  Si los encabezados coinciden con tu banco de preguntas se usa el dato que elegiste ahí; siempre ves los cambios antes de guardarlos.
+
+## Otras secciones del panel
+
+- **Mapa de ubicaciones**: arrastra el punto de cada local hasta su lugar exacto (se guarda al soltar y se puede deshacer).
+- **Cartas**: platos, precios y para quién son aptos (vegano, vegetariano, sin gluten, sin lactosa).
+- **Top y clientes**: Top 10 actual, "Cerrar el mes" (guarda las distinciones del mes) y clientes frecuentes (5 visitas en el mes = cliente del mes).
 
 ## Guías
 

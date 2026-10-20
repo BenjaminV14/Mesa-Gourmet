@@ -1,29 +1,37 @@
-// Pantalla de inicio: recomendados, búsqueda y filtros dietéticos
-import { state } from '../state.js';
-import { search } from './search.js';
-import { pickRandomLocal, isSponsored } from './sponsors.js';
+// Pantalla de inicio: "Recomendados" y "Cerca de ti", búsqueda y filtros
+import { state, FILTROS_VACIOS } from '../state.js';
+import { isSponsored, pickRandomLocal } from './sponsors.js';
+import { resultadosInicio, openFilters, activeFilterCount } from './filters.js';
 import { localCard, dishResult, emptyState } from '../ui/cards.js';
 import { registerActions } from '../ui/actions.js';
+import { showToast } from '../ui/feedback.js';
 import { esc } from '../utils/html.js';
 import { track } from '../services/analytics.js';
 import { showLocalDetail } from './detalle.js';
 
 export function renderInicio() {
     const main = document.getElementById('mainContent');
+    const filtros = activeFilterCount();
     main.innerHTML = `
-        <div class="section-head">
-            <h2 class="section-title">${state.query ? 'Resultados' : 'Recomendados'}</h2>
-            <button class="chip-btn" data-action="open-filters">🎛️ Filtros${activeDietCount() ? ` (${activeDietCount()})` : ''}</button>
+        <div class="home-head">
+            ${state.query
+                ? `<h2 class="section-title">Resultados para "${esc(state.query)}"</h2>`
+                : `<div class="segmented" role="tablist" aria-label="Cómo ordenar los locales">
+                    <button class="segmented-btn ${state.modoInicio === 'recomendados' ? 'is-on' : ''}" role="tab" aria-selected="${state.modoInicio === 'recomendados'}" data-action="home-mode" data-mode="recomendados">⭐ Recomendados</button>
+                    <button class="segmented-btn ${state.modoInicio === 'cerca' ? 'is-on' : ''}" role="tab" aria-selected="${state.modoInicio === 'cerca'}" data-action="home-mode" data-mode="cerca">📍 Cerca de ti</button>
+                </div>`}
+            <button class="filters-btn ${filtros ? 'has-filters' : ''}" data-action="open-filters">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M7 12h10M10 18h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+                Filtros${filtros ? `<span class="filters-count">${filtros}</span>` : ''}
+            </button>
         </div>
-        ${state.query ? '' : `<button class="random-btn" data-action="random-local">¡Recomendación aleatoria! 🎲</button>`}
+        ${!state.query && state.modoInicio === 'cerca' && !state.hasRealLocation
+            ? `<button class="location-hint" data-action="ask-location">📍 Estamos usando el centro de Talca. <b>Activar mi ubicación</b></button>` : ''}
+        ${state.query ? '' : `<button class="random-btn" data-action="random-local">🎲 ¿No sabes qué comer? Te recomendamos uno</button>`}
         <div id="resultsContainer"></div>
     `;
     renderResults();
     trackSearch();
-}
-
-function activeDietCount() {
-    return Object.values(state.dietary).filter(Boolean).length;
 }
 
 let lastResult = null;
@@ -39,14 +47,16 @@ export function trackSearch() {
 export function renderResults() {
     const container = document.getElementById('resultsContainer');
     if (!container) return;
-    const result = search(state.query, state.dietary);
-
+    const result = resultadosInicio();
     lastResult = result;
 
     let html = '';
     if (result.correcciones.size) {
         const texto = result.tokens.map(t => result.correcciones.get(t) || t).join(' ');
         html += `<p class="search-hint">Mostrando resultados para <b>${esc(texto)}</b></p>`;
+    }
+    if (activeFilterCount()) {
+        html += `<p class="search-hint">${activeFilterCount()} filtro(s) activo(s) · <button class="link-btn" data-action="clear-filters">Quitar filtros</button></p>`;
     }
 
     if (state.query && result.platos.length) {
@@ -66,36 +76,29 @@ export function renderResults() {
     container.innerHTML = html;
 }
 
-// =================== FILTROS DIETÉTICOS ===================
-
-function updateFilterButtons() {
-    ['vegano', 'celiaco', 'sinLactosa'].forEach(type => {
-        const btn = document.getElementById(`dietBtn_${type}`);
-        if (btn) {
-            btn.classList.toggle('is-active', state.dietary[type]);
-            btn.setAttribute('aria-pressed', state.dietary[type]);
-        }
-    });
-}
-
 registerActions({
+    'home-mode': el => {
+        state.modoInicio = el.dataset.mode;
+        track('modo_inicio', { modo: state.modoInicio });
+        renderInicio();
+    },
+    'ask-location': () => {
+        if (!navigator.geolocation) return showToast('Tu dispositivo no permite obtener la ubicación.');
+        navigator.geolocation.getCurrentPosition(pos => {
+            state.userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            state.hasRealLocation = true;
+            renderInicio();
+        }, () => showToast('No pudimos acceder a tu ubicación. Revisa los permisos del navegador.'));
+    },
     'random-local': () => {
         const local = pickRandomLocal();
         if (!local) return;
         track('recomendacion_aleatoria', { localId: local.id, destacado: isSponsored(local) });
         showLocalDetail(local.id);
     },
-    'open-filters': () => {
-        updateFilterButtons();
-        document.getElementById('filterModal').classList.remove('hidden');
-    },
-    'close-filters': () => {
-        document.getElementById('filterModal').classList.add('hidden');
-        if (state.currentView === 'inicio') renderInicio();
-    },
-    'toggle-diet': el => {
-        const type = el.dataset.diet;
-        state.dietary[type] = !state.dietary[type];
-        updateFilterButtons();
+    'open-filters': () => openFilters(() => { if (state.currentView === 'inicio') renderInicio(); }),
+    'clear-filters': () => {
+        state.filtros = FILTROS_VACIOS();
+        renderInicio();
     }
 });

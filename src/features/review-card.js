@@ -1,6 +1,7 @@
-// Tarjeta de reseña y "me gusta" por usuario
-import { state } from '../state.js';
-import { db, persist, getLocal, addReport } from '../data/store.js';
+// Tarjeta de reseña: todas las fotos (cada una con sus propios "me gusta"), seguir a la persona,
+// guardar la reseña y "Quiero ir". No hay comentarios: la reseña queda como opinión de quien la escribe.
+import { state, isLoggedIn } from '../state.js';
+import { db, persist, getLocal, addReport, saveSession } from '../data/store.js';
 import { registerActions } from '../ui/actions.js';
 import { showToast } from '../ui/feedback.js';
 import { esc, safeUrl, initials } from '../utils/html.js';
@@ -9,7 +10,7 @@ import { requireAccount } from './auth.js';
 import { track } from '../services/analytics.js';
 
 export function userLiked(item) {
-    return !!state.user && !state.isGuest && (item.likedBy || []).includes(state.user.id);
+    return isLoggedIn() && (item.likedBy || []).includes(state.user.id);
 }
 
 // Agrega o quita el like del usuario actual. Devuelve true si quedó marcado.
@@ -26,34 +27,57 @@ export function toggleLike(item) {
     return true;
 }
 
-export function likeButton(item, action) {
+export function likeButton(item, action, extra = {}) {
     const liked = userLiked(item);
-    return `<button class="like-btn ${liked ? 'is-liked' : ''}" data-action="${action}" data-id="${esc(item.id)}" aria-pressed="${liked}" aria-label="Me gusta">${liked ? '❤️' : '🤍'} <span>${item.likes || 0}</span></button>`;
+    const attrs = Object.entries(extra).map(([k, v]) => `data-${k}="${esc(v)}"`).join(' ');
+    return `<button class="like-btn ${liked ? 'is-liked' : ''}" data-action="${action}" data-id="${esc(item.id)}" ${attrs} aria-pressed="${liked}" aria-label="Me gusta">${liked ? '❤️' : '🤍'} <span>${item.likes || 0}</span></button>`;
+}
+
+function siguiendo(userId) {
+    return isLoggedIn() && state.user.siguiendo.includes(userId);
 }
 
 export function reviewCard(r, { showLocal = true } = {}) {
     const local = getLocal(r.localId);
+    const propia = isLoggedIn() && r.usuario.id === state.user.id;
+    const guardada = isLoggedIn() && state.user.guardados.resenas.includes(String(r.id));
+    const fotos = r.fotos || [];
     return `
-    <article class="card review-card">
+    <article class="card review-card" data-review="${esc(r.id)}">
         <div class="review-head">
             <div class="avatar">${esc(r.usuario.avatar || initials(r.usuario.nombre))}</div>
             <div class="review-author">
                 <b>${esc(r.usuario.nombre)}</b>
-                <span>${esc(timeAgo(r.fecha))}</span>
+                <span>${r.usuario.username ? `@${esc(r.usuario.username)} · ` : ''}${esc(timeAgo(r.fecha))}</span>
             </div>
-            ${r.fotoVerificada ? '<span class="verified-pill" title="Foto revisada">✔ Foto verificada</span>' : ''}
+            ${propia ? '' : `<button class="follow-btn ${siguiendo(r.usuario.id) ? 'is-on' : ''}" data-action="follow-user" data-user="${esc(r.usuario.id)}">${siguiendo(r.usuario.id) ? 'Siguiendo' : 'Seguir'}</button>`}
         </div>
         ${showLocal && local ? `<button class="review-local" data-action="open-local" data-id="${local.id}"><img src="${esc(safeUrl(local.imagen))}" alt=""> ${esc(local.nombre)}</button>` : ''}
-        ${r.fotoComida ? `<img class="review-photo" src="${esc(safeUrl(r.fotoComida))}" alt="Foto de ${esc((r.productos || [])[0] || 'la comida')}" loading="lazy">` : ''}
+        ${fotos.length ? `
+        <div class="review-photos ${fotos.length === 1 ? 'is-single' : ''}">
+            ${fotos.map(f => `
+                <figure class="review-photo-item">
+                    <img src="${esc(safeUrl(f.url))}" alt="Foto de ${esc(f.item)}" loading="lazy">
+                    <figcaption>
+                        <span>${esc(f.item)} ${f.verificada ? '<span class="verified-dot" title="Foto verificada">✔</span>' : ''}</span>
+                        ${likeButton(f, 'like-photo-item', { review: r.id })}
+                    </figcaption>
+                </figure>`).join('')}
+        </div>` : ''}
         <p class="review-dishes">🍴 ${esc((r.productos || []).join(', '))}</p>
         <div class="review-scores">
             <span>🍽️ Comida <b>${r.notaComida.toFixed(1)}</b></span>
             <span>🤵 Servicio <b>${r.notaServicio.toFixed(1)}</b></span>
+            ${r.precioPersona ? `<span>💵 ${esc(r.precioPersona)} por persona</span>` : ''}
         </div>
         <p class="review-text">"${esc(r.comentario)}"</p>
         <div class="review-foot">
             ${likeButton(r, 'like-review')}
-            <button class="report-mini" data-action="report-review" data-id="${esc(r.id)}" aria-label="Reportar reseña">⚑ Reportar</button>
+            <div class="review-foot-actions">
+                ${local && !propia ? `<button class="mini-action quiero-btn ${isLoggedIn() && state.user.quieroIr.includes(local.id) ? 'is-on' : ''}" data-action="toggle-quiero" data-id="${local.id}">🔖 Quiero ir</button>` : ''}
+                <button class="mini-action ${guardada ? 'is-on' : ''}" data-action="save-review" data-id="${esc(r.id)}" aria-pressed="${guardada}">${guardada ? '📌 Guardada' : '📌 Guardar'}</button>
+                <button class="report-mini" data-action="report-review" data-id="${esc(r.id)}" aria-label="Reportar reseña">⚑</button>
+            </div>
         </div>
     </article>`;
 }
@@ -65,15 +89,53 @@ function updateLikeButton(el, item) {
     el.innerHTML = `${liked ? '❤️' : '🤍'} <span>${item.likes || 0}</span>`;
 }
 
+function findReview(id) {
+    return db.reviews.find(r => String(r.id) === String(id));
+}
+
 registerActions({
     'like-review': el => {
         if (!requireAccount('dar me gusta')) return;
-        const review = db.reviews.find(r => String(r.id) === el.dataset.id);
+        const review = findReview(el.dataset.id);
         if (!review) return;
         const liked = toggleLike(review);
         persist();
         updateLikeButton(el, review);
         track(liked ? 'like_resena' : 'unlike_resena', { reviewId: review.id });
+    },
+    // Cada foto tiene sus propios "me gusta": la más likeada de cada plato es la que aparece en la carta
+    'like-photo-item': el => {
+        if (!requireAccount('dar me gusta')) return;
+        const review = findReview(el.dataset.review);
+        const foto = (review?.fotos || []).find(f => f.id === el.dataset.id);
+        if (!foto) return;
+        const liked = toggleLike(foto);
+        persist();
+        document.querySelectorAll(`[data-action="like-photo-item"][data-id="${CSS.escape(foto.id)}"]`).forEach(b => updateLikeButton(b, foto));
+        track(liked ? 'like_foto' : 'unlike_foto', { fotoId: foto.id, plato: foto.item });
+    },
+    'follow-user': el => {
+        if (!requireAccount('seguir a otros comensales')) return;
+        const id = el.dataset.user;
+        const list = state.user.siguiendo;
+        const idx = list.indexOf(id);
+        if (idx > -1) list.splice(idx, 1); else list.push(id);
+        saveSession(state.user);
+        document.querySelectorAll(`.follow-btn[data-user="${CSS.escape(id)}"]`).forEach(b => {
+            b.classList.toggle('is-on', idx === -1);
+            b.textContent = idx === -1 ? 'Siguiendo' : 'Seguir';
+        });
+        track(idx === -1 ? 'seguir' : 'dejar_de_seguir', { usuario: id });
+    },
+    'save-review': el => {
+        if (!requireAccount('guardar reseñas')) return;
+        const id = String(el.dataset.id);
+        const list = state.user.guardados.resenas;
+        const idx = list.indexOf(id);
+        if (idx > -1) list.splice(idx, 1); else list.push(id);
+        saveSession(state.user);
+        el.classList.toggle('is-on', idx === -1);
+        el.textContent = idx === -1 ? '📌 Guardada' : '📌 Guardar';
     },
     'report-review': el => {
         if (!requireAccount('reportar contenido')) return;

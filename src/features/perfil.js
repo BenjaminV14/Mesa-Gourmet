@@ -1,105 +1,119 @@
-// Perfil del comensal. Solo para cuentas registradas.
-import { state } from '../state.js';
+// Perfil del comensal: identidad (nombre y @usuario), estadísticas, insignias, guardados, "Quiero ir",
+// favoritos, reseñas propias y configuración. Solo para cuentas registradas.
+import { state, FILTROS_VACIOS } from '../state.js';
 import { db, persist, saveSession, getLocal } from '../data/store.js';
+import { CATEGORIAS, getCategoria } from '../data/categorias.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
 import { esc, safeUrl, initials } from '../utils/html.js';
-import { timeAgo } from '../utils/time.js';
 import { levelProgress, levelName, visitedLocalesCount, computeLogros, userReviews } from './gamification.js';
+import { reviewCard } from './review-card.js';
 import { logout } from './auth.js';
 import { canInstall } from '../services/pwa.js';
+import { DIETAS } from '../data/metrics.js';
 
-const PRODUCTOS_FAVORITOS = [
-    ['Pisco Sour', '🍸'], ['Café', '☕'], ['Ceviche', '🦐'], ['Sushi', '🍣'], ['Empanada', '🥟'],
-    ['Completo', '🌭'], ['Pizza', '🍕'], ['Hamburguesa', '🍔'], ['Pasta', '🍝'], ['Lomo Saltado', '🥩']
-];
+let tab = 'actividad';
 
 export function showWelcomeIfNeeded() {
     if (!state.user || state.isGuest || state.user.bienvenidaVista) return;
     openSheet({
         id: 'welcome',
-        title: '¡Bienvenido/a a Mesa Gourmet!',
+        title: `¡Bienvenido/a, ${state.user.nombre.split(' ')[0]}!`,
         body: `
-            <p class="sheet-text">¿Cuál es tu producto favorito? Desbloqueas tu primera insignia.</p>
+            <p class="sheet-text">¿Cuál es tu comida favorita? Será tu primera insignia visible; las demás están ocultas y las irás descubriendo.</p>
             <div class="fav-products-grid">
-                ${PRODUCTOS_FAVORITOS.map(([name, emoji]) => `
-                    <button class="fav-product-btn" data-action="pick-fav-product" data-name="${esc(name)}"><span>${emoji}</span><span>${esc(name)}</span></button>`).join('')}
+                ${CATEGORIAS.map(c => `
+                    <button class="fav-product-btn" data-action="pick-fav-product" data-cat="${c.id}"><span>${c.emoji}</span><span>${esc(c.nombre)}</span></button>`).join('')}
             </div>`,
         actions: [{ label: 'Elegir después', action: 'skip-welcome', variant: 'ghost' }],
         dismissible: false
     });
 }
 
+function localRow(local, extra = '') {
+    return `<button class="card picker-card" data-action="open-local" data-id="${local.id}">
+        <img src="${esc(safeUrl(local.imagen))}" alt="">
+        <span><b>${esc(local.nombre)}</b><small>${esc(local.tipo)}${extra}</small></span>
+        <span class="chev">›</span>
+    </button>`;
+}
+
+function tabContent(u) {
+    if (tab === 'actividad') {
+        const mias = userReviews().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        return mias.length ? `<div class="review-list">${mias.map(r => reviewCard(r)).join('')}</div>`
+            : '<p class="muted center">Aún no escribes reseñas. ¡La primera te da el nivel 1!</p>';
+    }
+    if (tab === 'guardados') {
+        const resenas = u.guardados.resenas.map(id => db.reviews.find(r => String(r.id) === id)).filter(Boolean);
+        const videos = u.guardados.videos.map(id => db.videos.find(v => v.id === id)).filter(Boolean);
+        return `
+            ${videos.length ? `<h4 class="subsection-title">Videos</h4><div class="saved-videos">${videos.map(v => `
+                <button class="saved-video" data-action="go-video" data-id="${esc(v.id)}">${v.portada ? `<img src="${esc(safeUrl(v.portada))}" alt="">` : '<span>🎬</span>'}<small>${esc(v.descripcion || v.autor)}</small></button>`).join('')}</div>` : ''}
+            ${resenas.length ? `<h4 class="subsection-title">Reseñas</h4><div class="review-list">${resenas.map(r => reviewCard(r)).join('')}</div>` : ''}
+            ${!videos.length && !resenas.length ? '<p class="muted center">Toca 📌 en una reseña o video para guardarlo aquí.</p>' : ''}`;
+    }
+    if (tab === 'quiero') {
+        const locales = u.quieroIr.map(getLocal).filter(Boolean);
+        return locales.length ? `<div class="review-list">${locales.map(l => localRow(l)).join('')}</div>`
+            : '<p class="muted center">Toca 🔖 "Quiero ir" en un local o una reseña para armar tu lista.</p>';
+    }
+    const favs = u.favoritos.map(getLocal).filter(Boolean);
+    return favs.length ? `<div class="review-list">${favs.map(l => localRow(l)).join('')}</div>`
+        : '<p class="muted center">Toca ❤️ en un local para guardarlo en favoritos.</p>';
+}
+
 export function renderPerfil() {
     if (!state.user || state.isGuest) return;
     const u = state.user;
     const { count, level, next, progress } = levelProgress();
-    const favoritos = db.locales.filter(l => (u.favoritos || []).includes(l.id));
-    const logros = computeLogros();
-    const unlocked = logros.filter(l => l.unlocked);
-    const misResenas = userReviews().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const logros = computeLogros().filter(l => l.visible);
+    const fav = getCategoria(u.productoFavorito);
+    const tabs = [['actividad', 'Mis reseñas'], ['guardados', 'Guardados'], ['quiero', 'Quiero ir'], ['favoritos', 'Favoritos']];
 
     document.getElementById('mainContent').innerHTML = `
-        <section class="profile-hero">
-            <div class="profile-avatar-large">${esc(initials(u.nombre))}</div>
-            <h2>${esc(u.nombre)}</h2>
-            <p class="muted">${esc(u.email)}</p>
-            <div class="profile-level-pill">⭐ Nivel ${level} · ${esc(levelName(level))}</div>
-            <div class="profile-progress-bar"><div class="profile-progress-fill" style="width:${progress}%;"></div></div>
-            <p class="profile-progress-label">${count} reseña${count !== 1 ? 's' : ''} · faltan ${Math.max(0, next - count)} para el nivel ${level + 1}</p>
-        </section>
-
-        <section class="profile-section">
-            <div class="profile-section-title">📊 Tus números</div>
-            <div class="stats-grid">
-                <div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">Reseñas</div></div>
-                <div class="stat-card"><div class="stat-value">${visitedLocalesCount()}</div><div class="stat-label">Locales visitados</div></div>
-                <div class="stat-card"><div class="stat-value">${favoritos.length}</div><div class="stat-label">Favoritos</div></div>
-                <div class="stat-card"><div class="stat-value">${unlocked.length}</div><div class="stat-label">Logros</div></div>
+        <section class="profile-card">
+            <div class="profile-cover"></div>
+            <div class="profile-identity">
+                <div class="profile-avatar-large">${esc(initials(u.nombre))}</div>
+                <div class="profile-names">
+                    <h2>${esc(u.nombre)}</h2>
+                    <p>@${esc(u.username)} · <span class="muted">${esc(u.email)}</span></p>
+                </div>
+                <button class="chip-btn" data-action="edit-profile">✏️ Editar</button>
+            </div>
+            <div class="profile-level">
+                <div class="profile-level-pill">⭐ Nivel ${level} · ${esc(levelName(level))}</div>
+                <div class="profile-progress-bar"><div class="profile-progress-fill" style="width:${progress}%;"></div></div>
+                <p class="profile-progress-label">${count} reseña${count !== 1 ? 's' : ''} · faltan ${Math.max(0, next - count)} para el nivel ${level + 1}</p>
+            </div>
+            <div class="profile-stats">
+                <div><b>${count}</b><span>Reseñas</span></div>
+                <div><b>${visitedLocalesCount()}</b><span>Locales</span></div>
+                <div><b>${u.siguiendo.length}</b><span>Siguiendo</span></div>
+                <div><b>${logros.filter(l => l.unlocked).length}</b><span>Insignias</span></div>
+            </div>
+            <div class="profile-badges">
+                ${fav ? `<span class="badge-chip is-fav">${fav.emoji} Fan de ${esc(fav.nombre.toLowerCase())}</span>` : '<button class="badge-chip" data-action="open-welcome">⭐ Elige tu comida favorita</button>'}
+                ${logros.filter(l => l.unlocked).map(l => `<span class="badge-chip">${l.emoji} ${esc(l.titulo)}</span>`).join('')}
             </div>
         </section>
 
-        <section class="profile-section">
-            <div class="profile-section-title">🏅 Insignias</div>
-            <div class="badges-vitrina">
-                ${u.productoFavorito
-                    ? `<div class="vitrina-badge vitrina-badge-fav unlocked"><span class="vitrina-badge-emoji">⭐</span><span>Experto en ${esc(u.productoFavorito)}</span></div>`
-                    : `<button class="vitrina-badge vitrina-badge-fav locked" data-action="open-welcome"><span class="vitrina-badge-emoji">⭐</span><span>Elige tu producto favorito</span></button>`}
-                ${logros.map(l => `
-                    <div class="vitrina-badge ${l.unlocked ? 'unlocked' : 'locked'}">
-                        <span class="vitrina-badge-emoji">${l.emoji}</span>
-                        <div class="vitrina-badge-title">${esc(l.titulo)}</div>
-                        ${l.unlocked ? '' : `<small>${l.count}/${l.required}</small>`}
-                    </div>`).join('')}
-            </div>
-        </section>
+        <div class="profile-tabs" role="tablist">
+            ${tabs.map(([k, l]) => `<button class="profile-tab ${tab === k ? 'is-on' : ''}" role="tab" aria-selected="${tab === k}" data-action="profile-tab" data-tab="${k}">${l}</button>`).join('')}
+        </div>
+        <div id="profileTabContent">${tabContent(u)}</div>
 
         <section class="profile-section">
-            <div class="profile-section-title">❤️ Locales favoritos</div>
-            ${favoritos.length ? `<div class="review-list">${favoritos.map(local => `
-                <button class="card picker-card" data-action="open-local" data-id="${local.id}">
-                    <img src="${esc(safeUrl(local.imagen))}" alt="">
-                    <span><b>${esc(local.nombre)}</b><small>${esc(local.tipo)}</small></span>
-                    <span class="rank-score">${(local.notaMG || 0).toFixed(1)} ★</span>
-                </button>`).join('')}</div>`
-                : '<p class="muted">Toca el ❤️ en un local para guardarlo aquí.</p>'}
-        </section>
-
-        <section class="profile-section">
-            <div class="profile-section-title">✍️ Mis reseñas</div>
-            ${misResenas.length ? `<div class="review-list">${misResenas.map(r => `
-                <button class="card picker-card" data-action="open-local" data-id="${r.localId}" data-tab="resenas">
-                    <span><b>${esc(getLocal(r.localId)?.nombre || '')}</b><small>${esc(timeAgo(r.fecha))} · ${r.estado === 'pendiente' ? 'En revisión' : 'Publicada'}</small></span>
-                    <span class="rank-score">${((r.notaComida + r.notaServicio) / 2).toFixed(1)} ★</span>
-                </button>`).join('')}</div>`
-                : '<p class="muted">Aún no escribes reseñas.</p>'}
-        </section>
-
-        <section class="profile-section">
-            <div class="profile-section-title">⚙️ Cuenta y privacidad</div>
+            <div class="profile-section-title">⚙️ Configuración</div>
             <div class="settings-list">
+                <button class="settings-row" data-action="settings-notif">🔔 Notificaciones <span class="chev">›</span></button>
+                <button class="settings-row" data-action="settings-diet">🥗 Mis necesidades alimentarias <span class="chev">›</span></button>
+                <button class="settings-row" data-action="settings-privacy">🔒 Privacidad <span class="chev">›</span></button>
+                <button class="settings-row" data-action="open-welcome">⭐ Cambiar mi comida favorita <span class="chev">›</span></button>
                 <button class="settings-row" data-action="install-app" ${canInstall() ? '' : 'hidden'}>📲 Instalar la app en este dispositivo</button>
-                <button class="settings-row" data-action="edit-name">✏️ Cambiar mi nombre</button>
+                <button class="settings-row" data-action="show-terms">📄 Términos y condiciones</button>
+                <button class="settings-row" data-action="show-privacy">🛡️ Política de privacidad</button>
                 <button class="settings-row" data-action="download-data">📦 Descargar mis datos</button>
                 <button class="settings-row danger" data-action="delete-account">🗑️ Eliminar mi cuenta</button>
                 <button class="settings-row danger" data-action="logout">🚪 Cerrar sesión</button>
@@ -108,13 +122,31 @@ export function renderPerfil() {
     `;
 }
 
+function toggleRow(id, label, checked, desc = '') {
+    return `<label class="toggle-row" for="${id}">
+        <span><b>${esc(label)}</b>${desc ? `<small>${esc(desc)}</small>` : ''}</span>
+        <input type="checkbox" id="${id}" ${checked ? 'checked' : ''} class="switch">
+    </label>`;
+}
+
 registerActions({
+    'profile-tab': el => {
+        tab = el.dataset.tab;
+        renderPerfil();
+    },
+    'go-video': el => {
+        import('./navigation.js').then(m => {
+            m.switchTab('resenas');
+            import('./resenas.js').then(r => r.renderResenas('videos', el.dataset.id));
+        });
+    },
     'pick-fav-product': el => {
-        state.user.productoFavorito = el.dataset.name;
+        state.user.productoFavorito = el.dataset.cat;
         state.user.bienvenidaVista = true;
         saveSession(state.user);
         closeSheet('welcome');
-        showToast(`🏅 Insignia desbloqueada: Experto en ${el.dataset.name}`);
+        const c = getCategoria(el.dataset.cat);
+        showToast(`${c.emoji} Insignia visible: ${c.insignia}`);
         if (state.currentView === 'perfil') renderPerfil();
     },
     'skip-welcome': () => {
@@ -126,23 +158,103 @@ registerActions({
         state.user.bienvenidaVista = false;
         showWelcomeIfNeeded();
     },
-    'edit-name': () => openSheet({
-        id: 'editName',
-        title: 'Cambiar mi nombre',
-        body: `<form class="sheet-form"><label for="newName">Nombre visible</label><input id="newName" maxlength="40" value="${esc(state.user.nombre)}"></form>`,
-        actions: [{ label: 'Guardar', action: 'save-name', variant: 'primary' }, { label: 'Cancelar', action: 'close-sheet', variant: 'ghost' }]
+    'edit-profile': () => openSheet({
+        id: 'editProfile',
+        title: 'Editar perfil',
+        body: `<form class="sheet-form">
+            <label for="newName">Nombre visible</label><input id="newName" maxlength="40" value="${esc(state.user.nombre)}">
+            <label for="newUsername">Nombre de usuario</label>
+            <div class="input-prefix"><span>@</span><input id="newUsername" maxlength="24" value="${esc(state.user.username)}" autocapitalize="none" spellcheck="false"></div>
+            <p class="sheet-text small">Tu usuario está ligado a tu correo ${esc(state.user.email)}. Solo letras, números, punto y guion bajo.</p>
+            <p class="form-error" id="profileError" hidden></p>
+        </form>`,
+        actions: [{ label: 'Guardar', action: 'save-profile', variant: 'primary' }, { label: 'Cancelar', action: 'close-sheet', variant: 'ghost' }]
     }),
-    'save-name': () => {
+    'save-profile': () => {
         const nombre = document.getElementById('newName').value.trim();
-        if (nombre.length < 2) return showToast('El nombre debe tener al menos 2 letras.');
+        const username = document.getElementById('newUsername').value.trim().toLowerCase();
+        const err = document.getElementById('profileError');
+        const fail = m => { err.textContent = m; err.hidden = false; };
+        if (nombre.length < 2) return fail('El nombre debe tener al menos 2 letras.');
+        if (!/^[a-z0-9_.]{3,24}$/.test(username)) return fail('El usuario debe tener entre 3 y 24 caracteres: letras, números, punto o guion bajo.');
+        if (db.reviews.some(r => r.usuario.username === username && r.usuario.id !== state.user.id)) return fail('Ese nombre de usuario ya está en uso.');
         state.user.nombre = nombre;
+        state.user.username = username;
+        db.reviews.filter(r => r.usuario.id === state.user.id).forEach(r => { r.usuario.nombre = nombre; r.usuario.username = username; });
+        persist();
         saveSession(state.user);
-        closeSheet('editName');
+        closeSheet('editProfile');
         document.getElementById('userName').textContent = nombre.split(' ')[0];
         document.getElementById('userAvatar').textContent = initials(nombre);
         renderPerfil();
     },
-    // Derecho de acceso y portabilidad (Ley 21.719): el usuario puede llevarse sus datos
+    'settings-notif': () => {
+        const p = state.user.preferencias;
+        openSheet({
+            id: 'settingsSheet',
+            title: 'Notificaciones',
+            body: `<div class="toggle-list">
+                ${toggleRow('pref_promos', 'Promociones de mis favoritos', p.notifPromos ?? true, 'Te avisamos cuando un local favorito publique una promo o evento')}
+                ${toggleRow('pref_seguidores', 'Nuevos seguidores y "me gusta"', p.notifSocial ?? true)}
+                ${toggleRow('pref_recordatorio', 'Recordarme reseñar', p.notifRecordatorio ?? false, 'Un aviso al día siguiente de visitar un local')}
+                ${toggleRow('pref_novedades', 'Novedades de Mesa Gourmet', p.notifNovedades ?? false)}
+            </div><p class="sheet-text small">Las notificaciones al celular se activan al instalar la app.</p>`,
+            actions: [{ label: 'Guardar', action: 'save-notif', variant: 'primary' }]
+        });
+    },
+    'save-notif': () => {
+        Object.assign(state.user.preferencias, {
+            notifPromos: document.getElementById('pref_promos').checked,
+            notifSocial: document.getElementById('pref_seguidores').checked,
+            notifRecordatorio: document.getElementById('pref_recordatorio').checked,
+            notifNovedades: document.getElementById('pref_novedades').checked
+        });
+        saveSession(state.user);
+        closeSheet('settingsSheet');
+        showToast('Preferencias guardadas');
+    },
+    'settings-diet': () => {
+        const dietas = state.user.preferencias.dietas || [];
+        openSheet({
+            id: 'settingsSheet',
+            title: 'Mis necesidades alimentarias',
+            body: `<p class="sheet-text">Se aplicarán como filtro cada vez que abras la app.</p><div class="toggle-list">
+                ${DIETAS.map(d => toggleRow(`diet_${d.key}`, `${d.emoji} ${d.label}`, dietas.includes(d.key))).join('')}
+            </div>`,
+            actions: [{ label: 'Guardar', action: 'save-diet', variant: 'primary' }]
+        });
+    },
+    'save-diet': () => {
+        state.user.preferencias.dietas = DIETAS.filter(d => document.getElementById(`diet_${d.key}`).checked).map(d => d.key);
+        state.filtros = { ...FILTROS_VACIOS(), dietas: [...state.user.preferencias.dietas] };
+        saveSession(state.user);
+        closeSheet('settingsSheet');
+        showToast('Guardado. Ya se aplican en el inicio.');
+    },
+    'settings-privacy': () => {
+        const p = state.user.preferencias;
+        openSheet({
+            id: 'settingsSheet',
+            title: 'Privacidad',
+            body: `<div class="toggle-list">
+                ${toggleRow('priv_publico', 'Perfil público', p.perfilPublico ?? true, 'Otros pueden ver tus reseñas y seguirte')}
+                ${toggleRow('priv_ranking', 'Participar como cliente frecuente', p.mostrarEnRanking ?? true, 'Los locales pueden ofrecerte beneficios si los visitas seguido')}
+                ${toggleRow('priv_ubicacion', 'Usar mi ubicación', p.usarUbicacion ?? true, 'Solo para mostrar locales cercanos; no la guardamos')}
+            </div>`,
+            actions: [{ label: 'Guardar', action: 'save-privacy', variant: 'primary' }]
+        });
+    },
+    'save-privacy': () => {
+        Object.assign(state.user.preferencias, {
+            perfilPublico: document.getElementById('priv_publico').checked,
+            mostrarEnRanking: document.getElementById('priv_ranking').checked,
+            usarUbicacion: document.getElementById('priv_ubicacion').checked
+        });
+        saveSession(state.user);
+        closeSheet('settingsSheet');
+        showToast('Privacidad actualizada');
+    },
+    // Derecho de acceso y portabilidad (Ley 21.719)
     'download-data': () => {
         const data = {
             cuenta: state.user,
@@ -157,18 +269,18 @@ registerActions({
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
-    // Derecho de supresión. Además, Apple y Google exigen poder borrar la cuenta desde la app.
+    // Derecho de supresión. Apple y Google exigen poder borrar la cuenta desde la app.
     'delete-account': () => openSheet({
         id: 'deleteAccount',
         title: '¿Eliminar tu cuenta?',
-        body: '<p class="sheet-text">Se borrarán tu perfil, tus reseñas, tus videos y tus favoritos. Esta acción no se puede deshacer.</p>',
+        body: '<p class="sheet-text">Se borrarán tu perfil, tus reseñas, tus fotos, tus videos y tus favoritos. Esta acción no se puede deshacer.</p>',
         actions: [{ label: 'Sí, eliminar mi cuenta', action: 'confirm-delete', variant: 'danger' }, { label: 'Cancelar', action: 'close-sheet', variant: 'ghost' }]
     }),
     'confirm-delete': () => {
         const id = state.user.id;
         db.reviews = db.reviews.filter(r => r.usuario.id !== id);
         db.videos = db.videos.filter(v => v.usuarioId !== id);
-        [...db.reviews, ...db.videos].forEach(item => {
+        [...db.reviews, ...db.videos, ...db.reviews.flatMap(r => r.fotos || [])].forEach(item => {
             if ((item.likedBy || []).includes(id)) {
                 item.likedBy = item.likedBy.filter(x => x !== id);
                 item.likes = Math.max(0, (item.likes || 0) - 1);
@@ -180,3 +292,4 @@ registerActions({
         logout();
     }
 });
+

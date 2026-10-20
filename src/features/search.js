@@ -3,6 +3,7 @@
 import { db } from '../data/store.js';
 import { normalize, tokenize, matchWord } from '../utils/text.js';
 import { isSponsored, distanceTo } from './sponsors.js';
+import { dietaLocal } from '../data/metrics.js';
 
 // Frases que se tratan como una sola palabra
 const FRASES = {
@@ -47,7 +48,7 @@ const SINONIMOS = {
 };
 
 // Términos que se resuelven con el puntaje dietético del local (0 a 5)
-const DIETA = { vegano: 'vegano', vegana: 'vegano', vegetariano: 'vegetariano', vegetariana: 'vegetariano', celiaco: 'sinGluten', singluten: 'sinGluten', sinlactosa: 'sinLactosa' };
+const DIETA = { vegano: 'vegano', vegana: 'vegano', vegetariano: 'vegetariano', vegetariana: 'vegetariano', celiaco: 'sinGluten', celiacos: 'sinGluten', singluten: 'sinGluten', sinlactosa: 'sinLactosa' };
 
 function prepareQuery(raw) {
     let q = normalize(raw);
@@ -89,16 +90,14 @@ const PESOS = { nombre: 10, plato: 8, tipo: 6, caracteristicas: 4 };
  * Busca en locales y platos.
  * Devuelve { locales: [{ local, score, platos }], platos: [{ local, item, score }], correcciones: Map }
  */
-export function search(raw, dietary = {}) {
+export function search(raw) {
     const tokens = prepareQuery(raw);
     const correcciones = new Map();
     const localesResult = [];
     const platosResult = [];
 
-    const candidatos = db.locales.filter(local =>
-        !(dietary.vegano && (local.vegano || 0) < 3) &&
-        !(dietary.celiaco && (local.sinGluten || 0) < 3) &&
-        !(dietary.sinLactosa && (local.sinLactosa || 0) < 3));
+    // Los filtros (dietas, horario, características...) se aplican después, en filters.js
+    const candidatos = db.locales;
 
     if (!tokens.length) {
         candidatos.forEach(local => localesResult.push({ local, score: 0, platos: [] }));
@@ -109,7 +108,7 @@ export function search(raw, dietary = {}) {
         const fields = localFields(local);
         const porToken = tokens.map(token => {
             const dietKey = DIETA[token];
-            if (dietKey && (local[dietKey] || 0) >= 3) return { quality: 1, peso: 5, word: token };
+            if (dietKey && dietaLocal(local, dietKey).cantidad > 0) return { quality: 1, peso: 5, word: token };
             const alts = alternatives(token);
             const candidates = [
                 { peso: PESOS.nombre, ...bestMatch(alts, fields.nombre) },

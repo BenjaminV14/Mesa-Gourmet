@@ -3,6 +3,7 @@ import { db, persist, getLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
 import { toast, confirmDialog, emptyRow } from '../ui.js';
+import { DIETAS } from '../../data/metrics.js';
 
 let localId = null;
 let importPreview = null;
@@ -51,7 +52,7 @@ export function renderCartas() {
             <h2>${esc(local.nombre)} · ${(local.menu || []).length} platos</h2>
             <div class="adm-table-wrap">
                 <table class="adm-table adm-menu-table">
-                    <thead><tr><th>Plato</th><th>Categoría</th><th>Precio</th><th>Bebida</th><th>Foto (URL)</th><th>❤️</th><th></th></tr></thead>
+                    <thead><tr><th>Plato</th><th>Categoría</th><th>Precio</th><th>Bebida</th><th title="Vegetariano, vegano, sin gluten, sin lactosa">Apto para</th><th>Foto (URL)</th><th>❤️</th><th></th></tr></thead>
                     <tbody>
                         ${(local.menu || []).map((m, i) => `
                         <tr>
@@ -59,6 +60,7 @@ export function renderCartas() {
                             <td><input id="m_cat_${i}" value="${esc(m.categoria || '')}" list="admCategorias" aria-label="Categoría"></td>
                             <td><input id="m_precio_${i}" type="number" min="0" step="10" value="${m.precio || 0}" aria-label="Precio"></td>
                             <td class="center"><input id="m_drink_${i}" type="checkbox" ${m.isDrink ? 'checked' : ''} aria-label="Es bebida"></td>
+                            <td><div class="adm-diet-checks">${DIETAS.map(d => `<label title="${esc(d.label)}"><input type="checkbox" id="m_d_${d.key}_${i}" ${(m.dietas || []).includes(d.key) ? 'checked' : ''} aria-label="${esc(d.label)}">${d.emoji}</label>`).join('')}</div></td>
                             <td><input id="m_img_${i}" type="url" value="${esc(m.imagen || '')}" aria-label="Foto"></td>
                             <td>${m.likes || 0}</td>
                             <td><button class="adm-btn small danger" data-action="adm-dish-delete" data-index="${i}" aria-label="Eliminar plato">✕</button></td>
@@ -101,6 +103,7 @@ function readTable(local) {
         categoria: document.getElementById(`m_cat_${i}`).value.trim() || 'Otros',
         precio: Math.max(0, Number(document.getElementById(`m_precio_${i}`).value) || 0),
         isDrink: document.getElementById(`m_drink_${i}`).checked,
+        dietas: DIETAS.filter(d => document.getElementById(`m_d_${d.key}_${i}`).checked).map(d => d.key),
         imagen: document.getElementById(`m_img_${i}`).value.trim()
     }));
 }

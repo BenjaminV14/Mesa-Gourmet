@@ -18,6 +18,8 @@ import { isSponsored, distanceTo } from './sponsors.js';
 import { search } from './search.js';
 import { requireAccount } from './auth.js';
 import { track } from '../services/analytics.js';
+import { addBaseLayer } from '../services/tiles.js';
+import { notaActual } from '../data/metrics.js';
 
 let map = null;
 let markersLayer = null;
@@ -44,7 +46,8 @@ export function renderMapa() {
             </div>
             <div class="map-wrap">
                 <div id="talcaMap" class="talca-map" aria-label="Mapa de locales"></div>
-                <button class="map-locate-btn" data-action="map-locate" aria-label="Centrar en mi ubicación">📍</button>
+                <button class="map-locate-btn" data-action="map-locate" aria-label="Centrar en mi ubicación" title="Mi ubicación">📍</button>
+                <button class="map-locate-btn map-talca-btn" data-action="map-talca" aria-label="Volver a Talca" title="Volver a Talca">🏙️</button>
                 <div id="mapPreview" class="map-preview" hidden></div>
             </div>
             <div class="map-legend">
@@ -73,22 +76,19 @@ function initMap() {
     const el = document.getElementById('talcaMap');
     if (!el) return;
     destroyMap();
-    map = L.map(el, { zoomControl: true, attributionControl: true }).setView([TALCA_CENTER.lat, TALCA_CENTER.lng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19,
-        minZoom: 11
-    }).addTo(map);
+    // Talca primero, pero se puede alejar para ver todo Chile y el mundo
+    map = L.map(el, { zoomControl: true, attributionControl: true, worldCopyJump: true }).setView([TALCA_CENTER.lat, TALCA_CENTER.lng], 14);
+    addBaseLayer(map);
     markersLayer = L.layerGroup().addTo(map);
     map.on('click', () => hidePreview());
-    drawMarkers(true);
+    drawMarkers(false);
     drawUserMarker();
     // Leaflet necesita recalcular el tamaño cuando el contenedor termina de mostrarse
     setTimeout(() => map && map.invalidateSize(), 150);
 }
 
 function visibleLocales() {
-    const base = state.query ? search(state.query, state.dietary).locales.map(r => r.local) : db.locales;
+    const base = state.query ? search(state.query).locales.map(r => r.local) : db.locales;
     return base.filter(local => {
         if (currentFilter === 'abiertos') return estaAbierto(local);
         if (currentFilter === 'destacados') return isSponsored(local);
@@ -158,7 +158,7 @@ function showPreview(localId) {
         <div class="map-preview-info">
             <h3>${esc(local.nombre)} ${isSponsored(local) ? '<span class="badge-sponsored">★ Destacado</span>' : ''}</h3>
             <p>${estadoBadge(local)} ${esc(estadoHorario(local).detalle)}</p>
-            <p>${(local.notaMG || 0).toFixed(1)} ★ · ${esc(local.tipo)} · ${esc(formatDistance(distanceTo(local)))}</p>
+            <p>${notaActual(local.id).total ? notaActual(local.id).total.toFixed(1) + ' ★ · ' : ''}${esc(local.tipo)} · ${esc(formatDistance(distanceTo(local)))}</p>
             <div class="map-preview-actions">
                 <button class="btn btn-primary" data-action="open-local" data-id="${local.id}">Ver ficha</button>
                 <a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}" target="_blank" rel="noopener">Cómo llegar</a>
@@ -233,6 +233,7 @@ registerActions({
         drawMarkers(true);
     },
     'map-preview-close': () => hidePreview(),
+    'map-talca': () => map && map.setView([TALCA_CENTER.lat, TALCA_CENTER.lng], 14),
     'map-locate': () => {
         if (!navigator.geolocation) return showToast('Tu dispositivo no permite obtener la ubicación.');
         navigator.geolocation.getCurrentPosition(pos => {

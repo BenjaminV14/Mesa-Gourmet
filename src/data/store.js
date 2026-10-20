@@ -2,8 +2,9 @@
 // cuando se conecte Supabase, estas mismas funciones leerán y escribirán en la base de datos.
 import { buildSeedLocales, buildSeedReviews, buildSeedVideos } from './seed.js';
 
-const STORAGE_KEY = 'mg:v2:data';
+const STORAGE_KEY = 'mg:v3:data';
 const SESSION_KEY = 'mg:v2:session';
+const HISTORY_KEY = 'mg:v2:busquedas';
 
 function readJson(key) {
     try {
@@ -29,7 +30,11 @@ function freshData() {
         reviews: buildSeedReviews(),
         videos: buildSeedVideos(),
         reports: [],
-        moderation: []
+        moderation: [],
+        // Banco de preguntas de la encuesta a los dueños (se completa en el panel)
+        encuesta: null,
+        // Distinciones registradas al cerrar cada mes
+        cierres: []
     };
 }
 
@@ -37,6 +42,18 @@ export const db = readJson(STORAGE_KEY) || freshData();
 
 export function persist() {
     writeJson(STORAGE_KEY, db);
+}
+
+// Si los datos cambian en otra pestaña (por ejemplo, el panel aprueba una reseña), se avisa a la app.
+// Con Supabase esto se reemplaza por las suscripciones en tiempo real.
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', e => {
+        if (e.key !== STORAGE_KEY || !e.newValue) return;
+        try {
+            Object.assign(db, JSON.parse(e.newValue));
+            window.dispatchEvent(new CustomEvent('mg:data-changed'));
+        } catch { /* datos inválidos: se ignoran */ }
+    });
 }
 
 if (!readJson(STORAGE_KEY)) persist();
@@ -56,6 +73,23 @@ export function saveSession(user) {
     writeJson(SESSION_KEY, user);
 }
 
+// Búsquedas recientes del usuario (en este dispositivo)
+export function loadSearchHistory() {
+    return readJson(HISTORY_KEY) || [];
+}
+
+export function pushSearchHistory(term) {
+    const t = String(term || '').trim();
+    if (t.length < 2) return;
+    const list = loadSearchHistory().filter(x => x.toLowerCase() !== t.toLowerCase());
+    list.unshift(t);
+    writeJson(HISTORY_KEY, list.slice(0, 8));
+}
+
+export function clearSearchHistory() {
+    writeJson(HISTORY_KEY, null);
+}
+
 // =================== CONSULTAS ===================
 
 export function getLocal(id) {
@@ -67,24 +101,15 @@ export function reviewsOfLocal(localId) {
 }
 
 export function publishedReviews() {
-    return db.reviews.filter(r => r.estado !== 'rechazada' && r.estado !== 'pendiente');
+    return db.reviews.filter(r => r.estado === 'publicada');
 }
 
 export function approvedVideos() {
     return db.videos.filter(v => v.estado === 'aprobado');
 }
 
-// Recalcula las notas del local a partir de sus reseñas publicadas
-export function recomputeLocalScores(localId) {
-    const local = getLocal(localId);
-    const reviews = reviewsOfLocal(localId).filter(r => r.estado === 'publicada');
-    if (!local || reviews.length === 0) return;
-    const avgC = reviews.reduce((s, r) => s + r.notaComida, 0) / reviews.length;
-    const avgS = reviews.reduce((s, r) => s + r.notaServicio, 0) / reviews.length;
-    local.notaComida = Number(avgC.toFixed(1));
-    local.notaServicio = Number(avgS.toFixed(1));
-    local.notaMG = Number(((avgC + avgS) / 2).toFixed(1));
-}
+// Las notas se calculan al mostrar (ver metrics.js); esto solo existe por compatibilidad
+export function recomputeLocalScores() {}
 
 export function addReport(report) {
     db.reports.unshift({ id: `rep-${Date.now()}`, fecha: new Date().toISOString(), estado: 'abierto', ...report });
