@@ -51,7 +51,12 @@ export function addBaseLayer(map, { avisoSinConexion } = {}) {
         errores = 0;
         const p = PROVEEDORES[indice];
         capa = L.tileLayer(p.url, { maxZoom: 20, minZoom: 3, ...p.opciones }).addTo(map);
-        capa.on('tileload', () => { cargadas++; clearTimeout(temporizador); });
+        capa.on('tileload', e => {
+            // Una imagen de reemplazo (data:) no cuenta como mapa cargado
+            if (String(e.tile?.src || '').startsWith('data:')) return;
+            cargadas++;
+            clearTimeout(temporizador);
+        });
         capa.on('tileerror', () => {
             errores++;
             if (!cargadas && errores >= ERRORES_PARA_CAMBIAR) siguiente();
