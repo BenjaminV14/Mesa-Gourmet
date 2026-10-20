@@ -26,3 +26,4 @@ grant all on storage.objects to authenticated;
 create function storage.foldername(name text) returns text[] language sql immutable as
   $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
 grant execute on all functions in schema storage to anon, authenticated;
+create publication supabase_realtime;  -- Supabase la trae creada para el tiempo real

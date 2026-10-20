@@ -4,7 +4,7 @@ Supabase es el "backend" de Mesa Gourmet. Te entrega en un solo servicio:
 
 - **Base de datos** (PostgreSQL): locales, cartas, reseñas, videos, usuarios, reportes.
 - **Login** con correo y verificación, recuperación de contraseña y Google.
-- **Almacenamiento** de las fotos de las reseñas.
+- **Almacenamiento** de las fotos de las reseñas y de los videos que suben los usuarios.
 - **Funciones en el servidor** (Edge Functions): la verificación de fotos con IA.
 
 El esquema completo ya está escrito en `supabase/schema.sql`. Tú solo tienes que crear la cuenta y pegarlo.
@@ -31,9 +31,28 @@ El esquema completo ya está escrito en `supabase/schema.sql`. Tú solo tienes q
 
 Con eso quedan creadas todas las tablas, los contadores automáticos de likes y notas, los límites antispam (máximo 10 reseñas al día y 1 por local al día) y las **reglas de seguridad** (RLS), que deciden quién puede leer y escribir cada cosa.
 
-Estas reglas ya las probé en una base de datos real con 29 casos: por ejemplo, que un usuario no pueda hacerse administrador, saltarse la verificación de fotos ni dar dos likes. Las pruebas están en `supabase/tests/`.
+Estas reglas ya las probé en una base de datos real con 82 casos: por ejemplo, que un usuario no pueda hacerse administrador, mostrar una foto sin verificar, ver la encuesta de un local ni dar dos likes. Las pruebas están en `supabase/tests/`.
 
-## 3. Configurar el login con verificación de correo
+### Dónde queda cada cosa
+
+- **Reseñas:** cada reseña es una fila en `resenas` (notas de 0,1 a 10, comentario, precio por persona). Sus fotos se guardan como archivos en el bucket `fotos-resenas` y cada foto tiene además su fila en `resena_fotos` (una o más por plato). Los "me gusta" van en `resena_likes` (a la reseña) y `foto_likes` (a cada foto).
+- **Fotos sin verificar:** solo las ve quien las subió y tú. Aparecen para todos cuando la IA (o tú, desde Moderación) las aprueba.
+- **Notas:** la nota oficial de cada local es el promedio de los **últimos 30 días** (vista `notas_locales`). El promedio histórico queda como dato secundario.
+- **Videos:** los links de TikTok/Instagram y los videos subidos (bucket `videos`, hasta 60 MB) quedan en `videos`, siempre pendientes hasta que los apruebes.
+- **Encuesta a los dueños:** las respuestas van en `encuestas_locales` y las preguntas en `encuesta_preguntas`. Son **privadas**: solo las ve el administrador, porque traen datos como el nombre y teléfono del dueño.
+- **Social:** `seguidores`, `quiero_ir`, `guardados` y `favoritos`. Las listas de cada usuario son privadas; quién sigue a quién es público.
+- **Cierres de mes:** las distinciones de cada mes quedan en `cierres_mes`.
+
+## 3. Activar el tiempo real (1 minuto)
+
+El esquema ya deja las reseñas, sus fotos y los videos conectados al **tiempo real** de Supabase: así el feed de Reseñas muestra lo nuevo sin recargar la página. Para confirmarlo:
+
+1. Ve a **Database → Publications → supabase_realtime**.
+2. Revisa que estén marcadas `resenas`, `resena_fotos` y `videos`. Si alguna no está, márcala.
+
+El tiempo real respeta las mismas reglas de seguridad: nadie recibe fotos sin verificar ni reseñas ocultas de otros.
+
+## 4. Configurar el login con verificación de correo
 
 **Authentication → Providers → Email**
 
@@ -52,7 +71,7 @@ Estas reglas ya las probé en una base de datos real con 29 casos: por ejemplo, 
 
 > Para el lanzamiento real, configura un servicio de correo propio (SMTP), por ejemplo Resend o Brevo, en **Authentication → SMTP Settings**. El correo que trae Supabase tiene un límite bajo de envíos por hora y suele terminar en spam.
 
-## 4. Login con Google (opcional, 15 minutos)
+## 5. Login con Google (opcional, 15 minutos)
 
 1. En <https://console.cloud.google.com> crea un proyecto.
 2. Ve a **APIs & Services → OAuth consent screen**: tipo *External*, nombre "Mesa Gourmet", tu correo de contacto.
@@ -60,7 +79,7 @@ Estas reglas ya las probé en una base de datos real con 29 casos: por ejemplo, 
    - En **Authorized redirect URIs** pega la URL que aparece en Supabase en **Authentication → Providers → Google** (termina en `/auth/v1/callback`).
 4. Copia el **Client ID** y el **Client secret** en Supabase → **Authentication → Providers → Google** y actívalo.
 
-## 5. Convertirte en administrador
+## 6. Convertirte en administrador
 
 1. Regístrate en la app con tu correo y confírmalo.
 2. En **SQL Editor** ejecuta, con tu correo:
@@ -72,13 +91,15 @@ Estas reglas ya las probé en una base de datos real con 29 casos: por ejemplo, 
 
 Desde ese momento, solo tu cuenta puede entrar al panel de administración y cambiar locales, cartas, destacados y moderación.
 
-## 6. Verificación de fotos con IA
+## 7. Verificación de fotos con IA
 
-La función `supabase/functions/verificar-foto` usa la IA de Anthropic (Claude) para revisar que la foto muestre el plato declarado:
+La función `supabase/functions/verificar-foto` usa la IA de Anthropic (Claude) para revisar, **foto por foto**, que cada una muestre el plato indicado:
 
-- **Aprobada:** la reseña se publica con el sello "✔ Foto verificada".
-- **Dudosa:** la reseña se publica y la foto queda en *Moderación → Fotos sin verificar* para que la revises.
-- **Rechazada:** la reseña queda oculta en *Moderación → Reseñas en revisión* hasta que decidas.
+- **Aprobada:** la foto aparece para todos con el sello "✔ Foto verificada".
+- **Dudosa:** la reseña sigue publicada, pero esa foto queda oculta en *Moderación → Fotos sin verificar* hasta que la revises.
+- **Rechazada** (no es comida o es inapropiada): la reseña completa queda oculta en *Moderación → Reseñas en revisión* hasta que decidas.
+
+Los videos subidos los revisas tú por ahora. Más adelante, una función `moderar-video` revisará con IA algunos cuadros del video antes de aprobarlo.
 
 Lo hace el servidor, no la app, así que nadie puede saltarse el filtro. Para activarla:
 
@@ -95,7 +116,7 @@ Lo hace el servidor, no la app, así que nadie puede saltarse el filtro. Para ac
 
 La clave de Anthropic queda guardada **solo en Supabase**. Nunca va dentro de la app ni en GitHub.
 
-## 7. Lo que necesito de ti para conectar la app
+## 8. Lo que necesito de ti para conectar la app
 
 En **Project Settings → API** copia estos dos datos y pásamelos (o pégalos tú en el archivo `.env`):
 
@@ -109,7 +130,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
 
 Con esos dos datos reemplazo la capa de datos de la demo (`src/data/store.js`) por Supabase: login real, reseñas compartidas entre todos, fotos en el servidor y el panel de administración protegido.
 
-## 8. Respaldos
+## 9. Respaldos
 
 - El plan gratis no incluye respaldos automáticos descargables. Mientras tanto, usa **Panel admin → Usuarios y datos → Descargar respaldo** cada semana, o `supabase db dump` desde tu computador.
 - El plan Pro incluye respaldos diarios.
