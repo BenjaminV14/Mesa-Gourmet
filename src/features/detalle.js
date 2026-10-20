@@ -135,7 +135,7 @@ function renderInfo(local) {
         local.website && `<a href="${esc(safeUrl(local.website))}" target="_blank" rel="noopener" class="social-link-btn website">🌐 Sitio web</a>`,
         local.instagram && `<a href="https://instagram.com/${encodeURIComponent(local.instagram)}" target="_blank" rel="noopener" class="social-link-btn instagram">📸 Instagram</a>`,
         local.tiktok && `<a href="https://tiktok.com/@${encodeURIComponent(local.tiktok)}" target="_blank" rel="noopener" class="social-link-btn tiktok">🎵 TikTok</a>`,
-        local.facebook && `<a href="https://facebook.com/${encodeURIComponent(local.facebook)}" target="_blank" rel="noopener" class="social-link-btn facebook">👍 Facebook</a>`
+        local.facebook && `<a href="${/\s/.test(local.facebook) ? `https://www.facebook.com/search/top?q=${encodeURIComponent(local.facebook)}` : `https://facebook.com/${encodeURIComponent(local.facebook)}`}" target="_blank" rel="noopener" class="social-link-btn facebook">👍 Facebook</a>`
     ].filter(Boolean);
     const dietas = DIETAS.map(d => ({ ...d, ...dietaLocal(local, d.key) })).filter(d => d.estrellas > 0);
     const distinciones = [...distincionesActuales(local.id).map(d => d.texto), ...distincionesHistoricas(local.id).map(d => d.texto)];
@@ -218,6 +218,7 @@ function renderMenu(local) {
     const dietaIcon = { vegetariano: '🥬', vegano: '🌱', sinGluten: '🌾', sinLactosa: '🥛' };
 
     return `
+        ${local.cartaUrl ? `<a class="btn btn-outline carta-oficial" href="${esc(safeUrl(local.cartaUrl))}" target="_blank" rel="noopener">📄 Ver la carta oficial del local ↗</a>` : ''}
         <p class="menu-intro">La carta se ordena por las fotos de la comunidad: el plato cuya foto tiene más "me gusta" va primero. ¡Sube la tuya al reseñar!</p>
         <div class="menu-list">
             ${carta.map(({ item, foto, likes, totalFotos }, i) => `

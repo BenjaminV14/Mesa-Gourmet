@@ -16,7 +16,7 @@ function updateInstallButtons() {
 export function setupPwa() {
     // Solo en la versión publicada (https o localhost compilado); no en "npm run dev" ni abriendo el archivo
     if ('serviceWorker' in navigator && import.meta.env.PROD && location.protocol.startsWith('http')) {
-        navigator.serviceWorker.register('/sw.js').catch(err => console.warn('No se pudo activar el modo sin conexión:', err));
+        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('No se pudo activar el modo sin conexión:', err));
     }
     window.addEventListener('beforeinstallprompt', event => {
         event.preventDefault();

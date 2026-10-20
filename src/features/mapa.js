@@ -19,7 +19,7 @@ import { search } from './search.js';
 import { requireAccount } from './auth.js';
 import { track } from '../services/analytics.js';
 import { addBaseLayer } from '../services/tiles.js';
-import { notaActual } from '../data/metrics.js';
+import { notaActual, dietaLocal } from '../data/metrics.js';
 
 let map = null;
 let markersLayer = null;
@@ -92,8 +92,7 @@ function visibleLocales() {
     return base.filter(local => {
         if (currentFilter === 'abiertos') return estaAbierto(local);
         if (currentFilter === 'destacados') return isSponsored(local);
-        if (currentFilter === 'vegano') return (local.vegano || 0) >= 3;
-        if (currentFilter === 'vegetariano') return (local.vegetariano || 0) >= 3;
+        if (currentFilter === 'vegano' || currentFilter === 'vegetariano') return dietaLocal(local, currentFilter).cantidad > 0;
         return true;
     });
 }

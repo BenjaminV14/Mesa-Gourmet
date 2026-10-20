@@ -2,8 +2,10 @@
 // - Páginas: primero la red; si no hay conexión, la última versión guardada.
 // - Archivos de la app (/assets/, /icons/): primero lo guardado, porque su nombre cambia en cada versión.
 // No guarda nada de la base de datos ni de otros sitios.
-const CACHE = 'mg-v2';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png'];
+const CACHE = 'mg-v3';
+// Rutas relativas a la carpeta del service worker (funciona en la raíz del dominio o en una subcarpeta)
+const BASE = new URL('./', self.location).pathname;
+const SHELL = ['', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png'].map(p => BASE + p);
 
 self.addEventListener('install', event => {
     event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -30,12 +32,12 @@ self.addEventListener('fetch', event => {
                     caches.open(CACHE).then(cache => cache.put(request, copy));
                     return response;
                 })
-                .catch(() => caches.match(request).then(r => r || caches.match('/index.html')))
+                .catch(() => caches.match(request).then(r => r || caches.match(BASE + 'index.html')))
         );
         return;
     }
 
-    if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
+    if (url.pathname.startsWith(BASE + 'assets/') || url.pathname.startsWith(BASE + 'icons/')) {
         event.respondWith(
             caches.match(request).then(cached => cached || fetch(request).then(response => {
                 const copy = response.clone();

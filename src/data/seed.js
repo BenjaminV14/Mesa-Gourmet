@@ -1,5 +1,6 @@
 // Datos iniciales de la demo: los locales base con sus logos, detalles, eventos, fotos de la comunidad y videos de ejemplo.
-// Los datos marcados como "ejemplo" se reemplazan con la encuesta real de cada local.
+// Los datos de Ramsés, Carlota y ¡Que Empanadas! vienen de la encuesta a sus dueños (solo lo público:
+// los datos internos, como el nombre del dueño o su celular, no se guardan aquí porque este código es público).
 import { baseLocales, baseReviews } from './seed-base.js';
 import logoRamses from '../assets/local-ramses.jpg';
 import logoCarlota from '../assets/local-carlota.jpg';
@@ -48,44 +49,77 @@ const DIETAS_PLATOS = {
 const extras = {
     1: {
         imagen: logoRamses,
-        slogan: 'Sabor peruano con corazón talquino',
-        mediosPago: 'Efectivo, débito, crédito y transferencia (ejemplo)',
-        horasPeak: '13:00 a 15:00 y 20:30 a 22:30 (ejemplo)',
-        diasPeak: 'Viernes y sábado (ejemplo)',
-        ambiente: 'Familiar y parejas (ejemplo)',
+        cartaUrl: 'https://uqr.to/LaCocinadeRamsesCartaDigital',
+        mediosPago: 'Tarjeta, efectivo y transferencia',
+        horasPeak: '13:00 a 16:00 y 20:00 a 23:00',
+        diasPeak: 'Jueves a domingo',
+        ambiente: 'Adultos y adultos mayores',
+        tematica: 'Cultura peruana',
+        capacidad: '30 mesas',
+        referencia: 'Cerca de la Iglesia Pompeya, la Escuela de Profesores y la Plaza de Armas',
+        horarioFeriados: 'Abre el 18 de septiembre, Navidad, Año Nuevo y Día del Trabajador, con el horario normal',
         etiquetas: ['peruano', 'ceviche', 'mariscos', 'pisco'],
-        website: '', tiktok: '',
         caracteristicasDetalle: {
-            'WiFi Disponible': 'Clave: ramses2026 (ejemplo)',
-            'Mascotas (Solo en Terraza)': 'Solo en la terraza',
-            'Apto para Fumadores (Solo en Terraza)': 'Solo en la terraza',
-            'Estacionamiento': 'En la calle, frente al local'
+            'Venta de Alcohol': 'Tragos preparados, cerveza y vino',
+            'Acepta reservas': 'Al +56 71 222 3612',
+            'Arriendo para eventos': 'Sector privado para 10 a 12 personas, o el local completo',
+            'Estacionamiento': '6 espacios en estacionamiento y en la vereda',
+            'Bicicletero': 'No hay bicicletero, pero se puede dejar en la terraza',
+            'Baño / WC': 'No adaptado para silla de ruedas'
         },
+        vegetarianoProductos: 1, veganoProductos: 1,
         eventos: [
-            { id: 'ev-1', titulo: 'Noche acústica en vivo', inicio: proximoDia(5, '21:00'), descripcion: 'Música acústica peruana mientras cenas.' }
+            { id: 'ev-1', titulo: 'Noche acústica en vivo', inicio: proximoDia(5, '21:00'), descripcion: 'Música acústica peruana mientras cenas. (Evento de ejemplo)' }
         ]
     },
     2: {
         imagen: logoCarlota,
-        slogan: 'Horneado con cariño todos los días',
-        mediosPago: 'Efectivo, débito y crédito (ejemplo)',
-        horasPeak: '17:00 a 19:30, hora de once (ejemplo)',
-        ambiente: 'Estudiantes y amigas (ejemplo)',
-        instagram: 'carlotabakedfood_talca',
-        website: '', tiktok: '',
-        etiquetas: ['cafeteria', 'brunch', 'desayuno', 'once', 'pasteleria', 'panaderia'],
+        descripcion: 'Pastelería y panadería con ambiente vintage cerca de la Plaza de Armas. Tiene opciones veganas, sin gluten y sin lactosa.',
+        mediosPago: 'Tarjeta, efectivo y transferencia',
+        horasPeak: '11:00 a 12:00, 13:30 a 15:00 y 16:30 a 17:30',
+        diasPeak: 'Martes, jueves y viernes',
+        ambiente: 'Familiar y diverso, adultos jóvenes',
+        tematica: 'Vintage',
+        capacidad: '2 mesas',
+        referencia: 'Plaza de Armas',
+        horarioFeriados: 'Navidad y Año Nuevo de 10:00 a 15:00',
+        etiquetas: ['cafeteria', 'desayuno', 'once', 'pasteleria', 'panaderia', 'vegano', 'sin gluten'],
         caracteristicasDetalle: {
-            'WiFi Disponible': 'Clave: carlota123 (ejemplo)',
-            'Mascotas (Solo en Terraza)': 'Solo en la terraza'
+            'Estacionamiento': 'Parquímetro en la Plaza de Armas',
+            'Bicicletero': 'Se pueden dejar cerca',
+            'Barra': 'Mesón',
+            'Pedidos para llevar': 'Con reserva'
         },
+        vegetarianoProductos: 1, veganoProductos: 1, sinGlutenProductos: 1, sinLactosaProductos: 1,
         eventos: []
     },
     3: {
         imagen: logoQueEmpanadas,
-        slogan: '¡Las más crujientes del Maule!',
-        website: '', tiktok: '',
-        etiquetas: ['empanadas', 'comida rapida', 'completos', 'sandwich'],
-        // Patrocinio vigente: aparece primero en listas y búsquedas, con estrella en el mapa
+        descripcion: 'Empanadas y comida rápida venezolana al paso, junto a la Plaza Cienfuegos. Pet friendly.',
+        cartaUrl: 'https://que-empanadas.pedix.app/',
+        mediosPago: 'Tarjeta, efectivo y transferencia',
+        horasPeak: '9:00 a 13:00',
+        diasPeak: 'Lunes, viernes, sábado y domingo',
+        ambiente: 'Adultos y jóvenes de 25 a 40 años',
+        tematica: 'Cultura venezolana',
+        capacidad: '15 sillas y 2 mesas, en la terraza',
+        referencia: 'Plaza Cienfuegos, bajo el Hotel Cienfuegos',
+        horarioFeriados: 'Feriados y festivos de 8:30 a 14:00',
+        etiquetas: ['empanadas', 'comida rapida', 'venezolana', 'completos', 'sandwich'],
+        caracteristicasDetalle: {
+            'Delivery': 'Uber Eats, PedidosYa y delivery propio',
+            'WiFi Disponible': 'Clave: quempanadas',
+            'Ingreso de Mascotas': 'Pet friendly',
+            'Calefacción': 'A gas, en invierno',
+            'Acceso Discapacitados': 'Por la entrada principal',
+            'Estacionamiento': 'En la vereda de enfrente',
+            'Barra': 'Mesón',
+            'Bicicletero': 'Se puede amarrar cerca o entrar con ella',
+            'Pedidos para llevar': 'Pedidos anticipados o agendados (abonando la mitad) y mix para compartir',
+            'Terraza': 'Las mesas están en la terraza'
+        },
+        vegetarianoProductos: 1, veganoProductos: 1, sinGlutenProductos: 1,
+        // Patrocinio vigente: aparece primero en listas y búsquedas, con estrella en el mapa (ejemplo)
         patrocinio: { plan: 'Destacado mensual', precio: 29990, desde: fechaRelativa(-10), hasta: fechaRelativa(20) },
         menuExtra: [
             { nombre: 'Completo Italiano', categoria: 'Completos', precio: 3500, imagen: 'https://images.unsplash.com/photo-1612392062631-94b33c7e6f6c?w=400&h=400&fit=crop', isDrink: false },
@@ -93,16 +127,6 @@ const extras = {
             { nombre: 'Papas Fritas Grandes', categoria: 'Acompañamientos', precio: 2900, imagen: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&h=400&fit=crop', isDrink: false }
         ],
         eventos: []
-    },
-    4: {
-        ejemplo: true,
-        slogan: 'Cocina japonesa de autor',
-        etiquetas: ['japones', 'sushi', 'rolls', 'ramen'],
-        // Patrocinio vencido: ya no tiene prioridad
-        patrocinio: { plan: 'Destacado mensual', precio: 29990, desde: fechaRelativa(-45), hasta: fechaRelativa(-15) },
-        eventos: [
-            { id: 'ev-2', titulo: 'DJ set y cócteles', inicio: proximoDia(6, '22:00'), descripcion: 'Música en vivo y promociones en la barra.' }
-        ]
     }
 };
 
@@ -126,7 +150,7 @@ export function buildSeedLocales() {
 // Likes de cada foto de ejemplo (la foto con más likes de un plato es la que aparece en la carta)
 const LIKES_FOTOS = {
     'Ceviche Clásico': 122, 'Pisco Sour Peruano': 64, 'Café Latte especial': 45,
-    'Empanada de Pino Horno': 58, 'Sushi Roll Ebi Furai': 31
+    'Empanada de Pino Horno': 58
 };
 
 const EXTRA_REVIEWS = [
@@ -168,7 +192,6 @@ export function buildSeedReviews() {
 export function buildSeedVideos() {
     return [
         { id: 'vid-1', plataforma: 'tiktok', url: '', autor: '@comiendoentalca', localId: 1, descripcion: 'Probamos el ceviche más pedido del centro', estado: 'aprobado', demo: true, fecha: fechaRelativa(-3), likes: 58, likedBy: [] },
-        { id: 'vid-2', plataforma: 'instagram', url: '', autor: '@talcagourmet', localId: 4, descripcion: 'Ramen miso un día de lluvia', estado: 'aprobado', demo: true, fecha: fechaRelativa(-8), likes: 34, likedBy: [] },
         { id: 'vid-3', plataforma: 'tiktok', url: '', autor: '@empanadaslovers', localId: 3, descripcion: 'Ranking de empanadas de pino en Talca', estado: 'aprobado', demo: true, fecha: fechaRelativa(-12), likes: 91, likedBy: [] }
     ];
 }

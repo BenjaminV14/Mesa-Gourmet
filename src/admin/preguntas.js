@@ -75,7 +75,7 @@ export const DEFAULT_PREGUNTAS = [
     p('contacto', 'Correo', 'interno'),
     p('contacto', 'Sitio Web', 'website'),
 
-    p('documentos', '001 MENÚ / CADA VEZ QUE LO ACTUALICEN', 'interno', 'Carta con precios (pídela en foto o PDF y cárgala en "Cartas")'),
+    p('documentos', '001 MENÚ / CADA VEZ QUE LO ACTUALICEN', 'cartaUrl', 'Link de la carta digital, o pide la carta en foto o PDF y cárgala en "Cartas"'),
     p('documentos', '003 HORARIOS', 'horario', 'Horario de atención por día (ej: lunes a viernes 12:00 a 23:00, domingo cerrado)'),
     p('documentos', '005 NÚMERO DE TRABAJADORES', 'interno'),
 

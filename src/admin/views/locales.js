@@ -16,6 +16,7 @@ const DIETAS = DIETAS_APP.map(d => [d.key, `${d.emoji} ${d.label}`]);
 // Datos para la sección "Antes de ir" de la ficha
 const EXTRAS = [
     ['slogan', 'Slogan o frase del local', 'Ej: El sabor de la casa'],
+    ['cartaUrl', 'Link de la carta oficial', 'https://…'],
     ['referencia', 'Punto de referencia', 'Ej: Frente a la plaza'],
     ['horarioFeriados', 'Horario en feriados', 'Ej: Feriados de 13:00 a 18:00'],
     ['mediosPago', 'Medios de pago', 'Efectivo, débito, crédito, transferencia'],

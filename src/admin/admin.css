@@ -274,3 +274,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .adm-rank { padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
 .adm-rank li span { color: var(--adm-muted); margin-left: 8px; font-size: 0.88rem; }
 .adm-subtitle { font-size: 0.95rem; margin: 14px 0 6px; }
+.leaflet-container.mapa-sin-conexion { background: #bcd6e6; }
+.mapa-ciudad span { display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; font: 600 11px var(--adm-font); color: #4a3f33; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.mapa-ciudad.principal span { font-size: 14px; font-weight: 800; color: #8b2635; }
+.mapa-ciudad.plaza span { font-size: 12px; color: #6b5a44; }
+.mapa-ciudad.plaza span::before { content: '⛲ '; }
+.mapa-aviso { max-width: 260px; padding: 6px 9px; border-radius: 8px; background: rgba(15, 23, 42, 0.85); color: #f8fafc; font: 500 11px/1.35 var(--adm-font); }

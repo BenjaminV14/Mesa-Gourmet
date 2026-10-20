@@ -57,7 +57,7 @@ function initMap() {
     if (map) { map.remove(); map = null; }
     markers = new Map();
     map = L.map(el).setView(TALCA, 14);
-    addBaseLayer(map);
+    addBaseLayer(map, { avisoSinConexion: 'Mapa simplificado, sin calles: no sirve para ubicar locales con precisión. Abre el panel con internet o pega las coordenadas de Google Maps en "Locales".' });
     db.locales.forEach(local => {
         const m = L.marker([local.lat, local.lng], { draggable: true, icon: icon(local), title: local.nombre, autoPan: true });
         m.bindTooltip(local.nombre, { direction: 'top', offset: [0, -38] });

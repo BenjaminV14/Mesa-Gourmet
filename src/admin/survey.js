@@ -22,8 +22,8 @@ export const CARACTERISTICAS_KEYWORDS = {
     'Acepta reservas': ['reservar alguna mesa', 'reservar mesa', 'reserva de mesa', 'reservas'],
     'Arriendo para eventos': ['reservar el local', 'arriendo del local', 'arrendar el local'],
     'Segundo piso': ['segundo piso'],
-    'Barra': ['barra'],
-    'Pedidos para llevar': ['realizar pedidos', 'para llevar', 'retiro en local'],
+    'Barra': ['barra', 'meson'],
+    'Pedidos para llevar': ['realizar pedidos', 'para llevar', 'retiro en local', 'pedidos'],
     'Consumo en el local': ['ingresar al local', 'consumo en el local', 'comer en el local']
 };
 
@@ -52,6 +52,7 @@ export const TARGETS = [
     { id: 'descripcion', label: 'Descripción', keywords: ['descripcion', 'describa', 'describe', 'cuentenos', 'cuentanos'] },
     { id: 'slogan', label: 'Slogan o frase del local', keywords: ['slogan', 'eslogan', 'refran', 'frase del local', 'lema'] },
     { id: 'facebook', label: 'Facebook', keywords: ['facebook'] },
+    { id: 'cartaUrl', label: 'Link de la carta oficial', keywords: ['link de la carta', 'carta digital', 'menu digital'] },
     { id: 'referencia', label: 'Punto de referencia', keywords: ['punto de referencia', 'referencia'] },
     { id: 'horarioFeriados', label: 'Horario en feriados', keywords: ['feriados', 'festividades'] },
     { id: 'mediosPago', label: 'Medios de pago', keywords: ['medios de pago', 'formas de pago', 'metodos de pago'] },
@@ -107,8 +108,10 @@ export function parseYesNo(value) {
     return null;
 }
 
-function hhmm(h, m) {
-    const hour = Number(h);
+function hhmm(h, m, ampm = '') {
+    let hour = Number(h);
+    if (/p/i.test(ampm) && hour < 12) hour += 12;
+    if (/a/i.test(ampm) && hour === 12) hour = 0;
     const min = Number(m || 0);
     if (hour > 24 || min > 59) return null;
     return `${String(hour % 24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
@@ -116,8 +119,8 @@ function hhmm(h, m) {
 
 // "12:00 - 23:30", "12 a 23 hrs", "12.30 a 0:00" -> "12:00 - 23:30"
 function parseRange(text) {
-    const times = [...text.matchAll(/(\d{1,2})(?:[:.h](\d{2}))?\s*(?:hrs?|h)?/g)]
-        .map(m => hhmm(m[1], m[2])).filter(Boolean);
+    const times = [...text.matchAll(/(\d{1,2})(?:[:.h](\d{2}))?\s*(am|pm|a\.\s?m\.?|p\.\s?m\.?)?\s*(?:hrs?|h)?/gi)]
+        .map(m => hhmm(m[1], m[2], m[3])).filter(Boolean);
     return times.length >= 2 ? `${times[0]} - ${times[1]}` : null;
 }
 
@@ -142,6 +145,20 @@ function daysIn(segment) {
         if (a <= b) return order.slice(a, b + 1);
     }
     return found;
+}
+
+export function horasLegibles(texto) {
+    return String(texto).replace(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b/gi, (_, h, m, ap) => hhmm(h, m, ap) || _);
+}
+
+// "71 2223612" -> "+56 71 222 3612", "569 72917701" -> "+56 9 7291 7701"
+export function formatTelefono(texto) {
+    let d = String(texto).replace(/[^0-9]/g, '');
+    if (d.length === 9) d = `56${d}`;
+    if (d.length !== 11 || !d.startsWith('56')) return String(texto).trim();
+    return d[2] === '9'
+        ? `+56 9 ${d.slice(3, 7)} ${d.slice(7)}`
+        : `+56 ${d.slice(2, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
 }
 
 /**
@@ -187,16 +204,17 @@ const ETIQUETAS_CAMPOS = {
     vegano: 'Vegano', vegetariano: 'Vegetariano', sinGluten: 'Sin gluten', sinLactosa: 'Sin lactosa',
     veganoProductos: 'Platos veganos', vegetarianoProductos: 'Platos vegetarianos', sinGlutenProductos: 'Platos sin gluten', sinLactosaProductos: 'Platos sin lactosa',
     slogan: 'Slogan', facebook: 'Facebook', referencia: 'Punto de referencia', horarioFeriados: 'Horario feriados', mediosPago: 'Medios de pago',
-    capacidad: 'Capacidad', ambiente: 'Ambiente', tematica: 'Temática', horasPeak: 'Horas con más público', diasPeak: 'Días con más público', notaAcceso: 'Para llegar'
+    capacidad: 'Capacidad', cartaUrl: 'Carta oficial', ambiente: 'Ambiente', tematica: 'Temática', horasPeak: 'Horas con más público', diasPeak: 'Días con más público', notaAcceso: 'Para llegar'
 };
 
 const cellText = v => (v instanceof Date ? v.toLocaleDateString('es-CL') : String(v ?? '').trim());
 
 /**
  * Convierte las hojas del archivo en una lista de respuestas por local: [{ fila, respuestas: { pregunta: valor } }].
- * Acepta dos formatos:
+ * Acepta tres formatos:
  *  - Una fila por local y una columna por pregunta (lo que exporta Google Forms).
  *  - Una hoja por local con dos columnas: Pregunta | Respuesta.
+ *  - Una sola hoja con las preguntas en la columna A y una columna por local (nombre en la fila 1).
  */
 export function sheetsToResponses(sheets) {
     const verticales = sheets.filter(s => s.data.length > 1 && s.data.every(r => r.filter(c => cellText(c)).length <= 2) && s.data.length >= 4);
@@ -211,6 +229,21 @@ export function sheetsToResponses(sheets) {
         };
     }
     const sheet = sheets.find(s => s.data.length > 1) || sheets[0];
+    // Una columna por local: preguntas hacia abajo en la columna A y el nombre de cada local en la fila 1
+    const enColumnas = sheet.data.slice(1).filter(r => cellText(r[0]).includes('?')).length >= 5
+        && sheet.data[0].slice(1).filter(c => cellText(c)).length >= 1;
+    if (enColumnas) {
+        const filas = sheet.data.slice(1).filter(r => cellText(r[0]));
+        const preguntas = ['Nombre del local', ...new Set(filas.map(r => cellText(r[0])))];
+        const respuestas = sheet.data[0].map((nombre, j) => ({ nombre: cellText(nombre), j }))
+            .filter(({ nombre, j }) => j > 0 && nombre && filas.some(r => cellText(r[j])))
+            .map(({ nombre, j }) => ({
+                fila: `Columna "${nombre}"`,
+                respuestas: { 'Nombre del local': nombre, ...Object.fromEntries(filas.map(r => [cellText(r[0]), r[j]])) }
+            }));
+        const vacios = sheet.data[0].slice(1).filter(c => cellText(c)).length - respuestas.length;
+        return { formato: `Una columna por local${vacios ? ` (${vacios} locales sin respuestas se omiten)` : ''}`, preguntas, respuestas };
+    }
     const [header = [], ...rows] = sheet.data;
     const preguntas = header.map(cellText);
     return {
@@ -243,6 +276,14 @@ export function parseCsv(text) {
     return [{ sheet: 'CSV', data: rows }];
 }
 
+// Compara nombres sin signos ni artículo inicial
+const nombreBase = n => normalize(n).replace(/[^a-z0-9 ]/g, '').replace(/^(la|el|los|las) /, '').trim();
+const mismoLocal = (a, b) => !!nombreBase(a) && nombreBase(a) === nombreBase(b);
+
+// Un detalle que solo repite "sí", "no" o "terraza" no aporta nada
+const detalleUtil = t => t && !/^(si|no|yes|terraza|en la terraza)$/.test(normalize(t));
+const capitalizar = t => t.charAt(0).toUpperCase() + t.slice(1);
+
 /**
  * Calcula qué cambiaría en cada local, sin aplicar nada todavía.
  * mapping: { pregunta: targetId }
@@ -251,7 +292,7 @@ export function planImport(responses, mapping, locales) {
     return responses.map(({ fila, respuestas }) => {
         const nombreQ = Object.keys(mapping).find(q => mapping[q] === 'nombre');
         const nombre = nombreQ ? cellText(respuestas[nombreQ]) : '';
-        const existente = nombre ? locales.find(l => normalize(l.nombre) === normalize(nombre)) : null;
+        const existente = nombre ? (locales.find(l => normalize(l.nombre) === normalize(nombre)) || locales.find(l => mismoLocal(l.nombre, nombre))) : null;
         const cambios = [];
         const avisos = [];
         const datos = {};
@@ -267,8 +308,18 @@ export function planImport(responses, mapping, locales) {
             if (target === 'ignorar' || target === 'nombre' || texto === '') continue;
 
             if (target === 'interno') continue;
-            if (['tipo', 'direccion', 'telefono', 'descripcion', 'website', 'slogan', 'referencia', 'horarioFeriados', 'mediosPago', 'capacidad', 'ambiente', 'tematica', 'horasPeak', 'diasPeak', 'notaAcceso'].includes(target)) datos[target] = texto;
-            else if (target === 'facebook') datos.facebook = texto.replace(/^@/, '').replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/.*$/, '');
+            const textoLibre = ['tipo', 'direccion', 'telefono', 'descripcion', 'website', 'slogan', 'referencia', 'horarioFeriados', 'mediosPago', 'capacidad', 'ambiente', 'tematica', 'horasPeak', 'diasPeak', 'notaAcceso', 'facebook', 'instagram', 'tiktok', 'whatsapp'];
+            // "No" en una pregunta de texto (sin TikTok, sin sitio web) significa que no hay dato
+            if (textoLibre.includes(target) && /^(no|no tiene|no tenemos|ninguno|ninguna|-)$/.test(normalize(texto))) continue;
+            if (target === 'telefono') datos.telefono = formatTelefono(texto);
+            else if (['horasPeak', 'horarioFeriados'].includes(target)) datos[target] = capitalizar(horasLegibles(texto));
+            else if (['tipo', 'descripcion', 'website', 'slogan', 'referencia', 'mediosPago', 'capacidad', 'ambiente', 'tematica', 'diasPeak', 'notaAcceso', 'direccion'].includes(target)) datos[target] = target === 'website' ? texto : capitalizar(texto);
+            else if (target === 'cartaUrl') {
+                // Solo si la respuesta es un link ("2 menús, verano e invierno" no lo es)
+                const link = texto.match(/(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?/i);
+                if (link && !/\s/.test(link[0])) datos.cartaUrl = link[0].startsWith('http') ? link[0] : `https://${link[0]}`;
+            }
+            else if (target === 'facebook') datos.facebook = texto.replace(/^@/, '').replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/.*$/, '').trim();
             else if (target.startsWith('det:')) {
                 const car = target.slice(4);
                 const yn = parseYesNo(valor);
@@ -277,7 +328,7 @@ export function planImport(responses, mapping, locales) {
                 if (yn === false) quitar.add(car);
                 else if (yn === true || detalle) {
                     agregar.add(car);
-                    if (detalle && parseYesNo(detalle) === null) detalles[car] = detalle.charAt(0).toUpperCase() + detalle.slice(1);
+                    if (detalleUtil(detalle)) detalles[car] = /^[\d\s+]{8,}$/.test(detalle) ? `Al ${formatTelefono(detalle)}` : capitalizar(detalle);
                 }
             } else if (target.startsWith('dietaN:')) {
                 const key = target.slice(7);
@@ -287,7 +338,10 @@ export function planImport(responses, mapping, locales) {
                 if (n === null) avisos.push(`No se entendió cuántos platos ${key}: "${texto.slice(0, 40)}"`);
                 else dietas[`${key}Productos`] = n;
             }
-            else if (target === 'whatsapp') datos.whatsapp = texto.replace(/[^0-9]/g, '');
+            else if (target === 'whatsapp') {
+                const d = texto.replace(/[^0-9]/g, '');
+                datos.whatsapp = d.length === 9 ? `56${d}` : d;
+            }
             else if (target === 'instagram' || target === 'tiktok') datos[target] = texto.replace(/^@/, '').replace(/^https?:\/\/(www\.)?(instagram|tiktok)\.com\/@?/, '').replace(/\/.*$/, '');
             else if (target === 'etiquetas') datos.etiquetas = texto.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
             else if (target === 'coords') {
@@ -306,14 +360,34 @@ export function planImport(responses, mapping, locales) {
                 const yn = parseYesNo(valor);
                 const n = normalize(texto);
                 // "Sí, pero solo en terraza" / "Sí, en todo el local"
-                if (car.startsWith('Mascotas') && yn && !/terraza|afuera|exterior/.test(n) && /todo|interior|adentro/.test(n)) car = 'Ingreso de Mascotas';
+                if (car.startsWith('Mascotas') && yn && !/terraza|afuera|exterior/.test(n) && /todo|interior|adentro|pet friendly/.test(n)) car = 'Ingreso de Mascotas';
+                // Otra característica mencionada en la respuesta ("calefacción por gas" en la pregunta del aire acondicionado)
+                const otra = Object.keys(CARACTERISTICAS_KEYWORDS).find(c => c !== car && CARACTERISTICAS_KEYWORDS[c].some(k => containsWord(n, normalize(k))));
                 if (yn === true) {
                     agregar.add(car);
                     const extra = texto.replace(/^(s[ií]|yes|x)\s*[,.:;-]?\s*/i, '').trim();
-                    if (extra && parseYesNo(extra) === null) detalles[car] = extra.charAt(0).toUpperCase() + extra.slice(1);
+                    if (detalleUtil(extra)) detalles[car] = capitalizar(extra);
                 }
-                else if (yn === false) quitar.add(car);
+                // "No, pero en la terraza se puede": sí, con esa aclaración
+                else if (/^no,? pero .*(se puede|puede|terraza)/.test(n)) {
+                    agregar.add(car);
+                    detalles[car] = capitalizar(texto);
+                }
+                else if (yn === false) {
+                    quitar.add(car);
+                    // "No (solo en caso de urgencia)" se guarda como aviso para que decidas
+                    if (/\(|solo|pero/.test(n)) avisos.push(`"${car}": respondieron "${texto.slice(0, 50)}". Se marcó como que no tiene.`);
+                }
                 else if (/terraza|afuera|exterior/.test(n) && (car.startsWith('Mascotas') || car.startsWith('Apto para Fumadores'))) agregar.add(car);
+                else if ((CARACTERISTICAS_KEYWORDS[car] || []).some(k => containsWord(n, normalize(k)))) {
+                    agregar.add(car);
+                    detalles[car] = capitalizar(texto);
+                }
+                else if (otra) {
+                    agregar.add(otra);
+                    detalles[otra] = capitalizar(texto);
+                    cambios.push(`"${texto.slice(0, 40)}" → se marcó ${otra}`);
+                }
                 else avisos.push(`Respuesta poco clara para "${car}": "${texto.slice(0, 40)}"`);
             } else if (target.startsWith('dieta:')) {
                 const v = dietValue(valor);
@@ -337,11 +411,13 @@ export function planImport(responses, mapping, locales) {
             Object.entries(horariosSemana).forEach(([d, v]) => { if ((base.horariosSemana || {})[d] !== v) cambios.push(`${d}: ${v}`); });
         }
         if (!nombre) avisos.push('Falta el nombre del local: esta respuesta no se importará.');
-        if (nombre && !existente && datos.lat === undefined) avisos.push('Local nuevo sin ubicación: quedará en el centro de Talca hasta que la completes en "Locales".');
+        const soloInterno = !existente && !cambios.length;
+        if (soloInterno) avisos.push('Solo tiene respuestas internas: no se crea el local.');
+        if (nombre && !existente && cambios.length && datos.lat === undefined) avisos.push('Local nuevo sin ubicación: quedará en el centro de Talca hasta que la completes en "Locales".');
 
         return {
             fila, nombre, existente, cambios, avisos,
-            aplicable: !!nombre,
+            aplicable: !!nombre && !soloInterno,
             resultado: {
                 ...datos, ...dietas, caracteristicas,
                 caracteristicasDetalle: { ...(base.caracteristicasDetalle || {}), ...detalles },
