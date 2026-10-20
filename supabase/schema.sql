@@ -66,6 +66,7 @@ create table public.locales (
     nota_servicio numeric(3,1) not null default 0,
     nota_mg numeric(3,1) not null default 0,
     distinciones text[] not null default '{}',
+    encuesta jsonb,                          -- respuestas originales de la encuesta al dueño del local
     activo boolean not null default true,
     creado_at timestamptz not null default now(),
     actualizado_at timestamptz not null default now()

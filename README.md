@@ -52,6 +52,13 @@ supabase/
 docs/                   Guías: Supabase, seguridad, legal, hosting
 ```
 
+## Importar la encuesta a los locales
+
+Panel de administración → **Importar encuesta**. Sube el Excel (.xlsx) o CSV con las respuestas:
+una fila por local y una columna por pregunta (lo que descarga Google Forms), o una hoja por local con Pregunta | Respuesta.
+El panel sugiere a qué dato corresponde cada pregunta (baños, WiFi, fumadores, mascotas, horario, contacto...),
+muestra los cambios antes de guardarlos y deja las respuestas originales en la ficha del local.
+
 ## Guías
 
 - [Supabase paso a paso](docs/SUPABASE.md)

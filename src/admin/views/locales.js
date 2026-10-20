@@ -108,6 +108,15 @@ function renderForm(local) {
                 </div>
             </section>
 
+            ${l.encuesta ? `
+            <section class="adm-card">
+                <h2>Respuestas de la encuesta</h2>
+                <p class="adm-help">Importadas el ${esc(new Date(l.encuesta.fecha).toLocaleDateString('es-CL'))} desde ${esc(l.encuesta.archivo)}.</p>
+                <dl class="adm-survey-answers">
+                    ${Object.entries(l.encuesta.respuestas).filter(([, v]) => String(v ?? '').trim()).map(([q, v]) => `<dt>${esc(q)}</dt><dd>${esc(v)}</dd>`).join('')}
+                </dl>
+            </section>` : ''}
+
             <p class="adm-error" id="admLocalError" role="alert" hidden></p>
             <div class="adm-form-actions">
                 ${local ? `<button type="button" class="adm-btn danger" data-action="adm-local-delete" data-id="${l.id}">Eliminar local</button>` : '<span></span>'}

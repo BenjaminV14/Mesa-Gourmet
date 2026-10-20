@@ -10,11 +10,13 @@ import { renderEventos, setEventosRerender } from './views/eventos.js';
 import { renderModeracion, setModeracionRerender } from './views/moderacion.js';
 import { renderReportes, setReportesHandlers } from './views/reportes.js';
 import { renderUsuarios, setUsuariosRerender } from './views/usuarios.js';
+import { renderEncuesta, setEncuestaRerender } from './views/encuesta.js';
 
 const VIEWS = {
     resumen: { label: 'Resumen', icon: '📊', render: renderResumen },
     locales: { label: 'Locales', icon: '🏪', render: renderLocales },
     cartas: { label: 'Cartas', icon: '📋', render: renderCartas },
+    encuesta: { label: 'Importar encuesta', icon: '📥', render: renderEncuesta },
     patrocinios: { label: 'Destacados', icon: '★', render: renderPatrocinios },
     eventos: { label: 'Eventos y promos', icon: '📅', render: renderEventos },
     moderacion: { label: 'Moderación', icon: '🛡️', render: renderModeracion, badge: () => db.reviews.filter(r => r.estado === 'pendiente').length + db.moderation.length + db.videos.filter(v => v.estado === 'pendiente').length + db.reports.filter(r => r.tipo === 'resena' && r.estado === 'abierto').length },
@@ -49,7 +51,7 @@ function go(view, localId = null) {
     window.scrollTo(0, 0);
 }
 
-[setLocalesRerender, setCartasRerender, setPatrociniosRerender, setEventosRerender, setModeracionRerender, setUsuariosRerender]
+[setLocalesRerender, setCartasRerender, setEncuestaRerender, setPatrociniosRerender, setEventosRerender, setModeracionRerender, setUsuariosRerender]
     .forEach(set => set(render));
 setReportesHandlers(render, go);
 

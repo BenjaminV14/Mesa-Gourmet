@@ -16,7 +16,7 @@ const FEATURE_ICONS = {
     'Seguridad Completa': '🛡️', 'Calefacción': '🔥', 'Aire Acondicionado / Ventilación': '❄️',
     'Venta de Alcohol': '🍺', 'Mascotas (Solo en Terraza)': '🐾', 'Ingreso de Mascotas': '🐾',
     'Apto para Fumadores (Solo en Terraza)': '🚬', 'Acepta Edenred / BAES': '💳', 'Acceso Discapacitados': '♿',
-    'Estacionamiento': '🚗', 'Bicicletero': '🚲', 'Baño / WC': '🚽', 'WiFi Disponible': '📶', 'Terraza': '🪑'
+    'Estacionamiento': '🚗', 'Bicicletero': '🚲', 'Baño / WC': '🚽', 'WiFi Disponible': '📶', 'Terraza': '🪑', 'Delivery': '🛵'
 };
 
 let currentTab = 'info';
