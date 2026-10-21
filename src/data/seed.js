@@ -107,7 +107,7 @@ const extras = {
         etiquetas: ['empanadas', 'comida rapida', 'venezolana', 'completos', 'sandwich'],
         caracteristicasDetalle: {
             'Delivery': 'Uber Eats, PedidosYa y delivery propio',
-            'WiFi Disponible': 'Clave: quempandas',
+            'WiFi Disponible': 'Clave: quempanadas',
             'Ingreso de Mascotas': 'Pet friendly',
             'Calefacción': 'A gas, en invierno',
             'Acceso Discapacitados': 'Por la entrada principal',

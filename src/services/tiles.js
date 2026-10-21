@@ -1,5 +1,5 @@
 // Capa de calles del mapa.
-// Prueba varios proveedores en orden (CARTO, Esri, OpenStreetMap). Si ninguno carga, por ejemplo sin internet
+// Prueba los proveedores en orden (CARTO y luego OpenStreetMap; ninguno pide clave). Si ninguno carga, por ejemplo sin internet
 // o dentro de un visor que bloquea imágenes externas, muestra un mapa simplificado que viene dentro de la app
 // (países, regiones y comunas del Maule) para que los locales se vean igual.
 // Para el lanzamiento con mucho tráfico conviene una cuenta propia (MapTiler o Stadia, con plan gratis),
@@ -14,10 +14,6 @@ const PROVEEDORES = [
         opciones: { subdomains: 'abcd', attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' }
     },
     {
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-        opciones: { maxNativeZoom: 19, attribution: 'Mapa © Esri y colaboradores' }
-    },
-    {
         url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         opciones: { maxNativeZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }
     }
@@ -25,7 +21,8 @@ const PROVEEDORES = [
 
 // Errores seguidos sin ninguna imagen cargada antes de pasar al siguiente proveedor
 const ERRORES_PARA_CAMBIAR = 4;
-const ESPERA_MAXIMA_MS = 7000;
+// Con señal lenta las primeras calles pueden tardar: se espera bastante antes de cambiar de proveedor
+const ESPERA_MAXIMA_MS = 15000;
 
 export function addBaseLayer(map, { avisoSinConexion } = {}) {
     let indice = 0;
