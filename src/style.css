@@ -2,22 +2,21 @@
     --mesa-red: #8B2635;
     --mesa-dark-red: #6B1F2A;
     --mesa-gold: #FFD700;
-    --bg-color: #f8fafc;
-    --bg-panel: rgba(255, 255, 255, 0.85);
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --glass-border: rgba(255, 255, 255, 0.2);
     --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --shadow-glow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
-[data-theme="dark"] {
+/* La app es siempre oscura: el diseño (paneles, hojas, mapa) está pensado para fondo oscuro.
+   Se fija aunque el navegador, el celular o el visor donde se abre pidan tema claro;
+   antes, con tema claro, el texto oscuro quedaba sobre paneles oscuros y no se leía. */
+:root, [data-theme="dark"], [data-theme="light"] {
     --bg-color: #0f172a;
     --bg-panel: rgba(30, 41, 59, 0.85);
     --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --glass-border: rgba(255, 255, 255, 0.05);
+    --text-secondary: #a3b1c6;
+    --glass-border: rgba(255, 255, 255, 0.08);
+    color-scheme: dark;
 }
 
 * {

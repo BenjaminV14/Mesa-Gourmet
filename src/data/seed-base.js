@@ -97,7 +97,7 @@ const baseLocales = [
     },
     {
         id: 2,
-        nombre: "La Carlota",
+        nombre: "Carlota",
         tipo: "Pastelería y panadería",
         horariosSemana: {
             "Lunes": "10:00 - 19:00",

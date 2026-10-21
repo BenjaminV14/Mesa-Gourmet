@@ -280,3 +280,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .mapa-ciudad.plaza span { font-size: 12px; color: #6b5a44; }
 .mapa-ciudad.plaza span::before { content: '⛲ '; }
 .mapa-aviso { max-width: 260px; padding: 6px 9px; border-radius: 8px; background: rgba(15, 23, 42, 0.85); color: #f8fafc; font: 500 11px/1.35 var(--adm-font); }
+.adm-menu-table tr.is-suggested td { background: var(--adm-gold-soft); }
+.adm-menu-table tr.is-doubt td:first-child { box-shadow: inset 4px 0 0 var(--adm-warn); }
+.adm-diet-summary { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; font-size: 0.9rem; }

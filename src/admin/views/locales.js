@@ -80,6 +80,7 @@ function renderForm(local) {
                     ${field('Dirección', 'f_direccion', l.direccion, { full: true })}
                     ${field('Teléfono', 'f_telefono', l.telefono, { placeholder: '+56 9 1234 5678' })}
                     ${field('WhatsApp (solo números)', 'f_whatsapp', l.whatsapp, { placeholder: '56912345678' })}
+                    ${field('WhatsApp para reservas (si es otro número)', 'f_whatsappReservas', l.whatsappReservas, { placeholder: 'Vacío = el mismo WhatsApp' })}
                     ${field('Instagram (usuario)', 'f_instagram', l.instagram)}
                     ${field('TikTok (usuario)', 'f_tiktok', l.tiktok)}
                     ${field('Facebook (usuario o página)', 'f_facebook', l.facebook)}
@@ -91,8 +92,9 @@ function renderForm(local) {
             </section>
 
             <section class="adm-card">
-                <h2>Antes de ir</h2>
-                <p class="adm-help">Se muestra en la ficha solo lo que completes.</p>
+                <h2>Más datos del local</h2>
+                <p class="adm-help">En la ficha se muestran el slogan, la carta oficial, los medios de pago (en Características) y el horario de feriados.
+                El resto queda como información para ti.</p>
                 <div class="adm-grid">
                     ${EXTRAS.map(([key, label, ph]) => field(label, `f_x_${key}`, l[key] || '', { placeholder: ph })).join('')}
                 </div>
@@ -130,12 +132,13 @@ function renderForm(local) {
             </section>
 
             <section class="adm-card">
-                <h2>Opciones dietéticas: cantidad de productos</h2>
-                <p class="adm-help">Las estrellas se calculan solas: 1-2 productos = 1★, 3-5 = 2★, 6-8 = 3★, 9-11 = 4★, 12 o más = 5★. Con 0 no se muestra.
-                Si marcas los platos en "Cartas", se usa el número mayor.</p>
-                <div class="adm-grid">
-                    ${DIETAS.map(([key, label]) => field(`${label}${local ? ` (en la carta: ${(l.menu || []).filter(m => (m.dietas || []).includes(key)).length})` : ''}`, `f_d_${key}`, l[`${key}Productos`] || 0, { type: 'number', attrs: 'min="0" max="200" step="1"' })).join('')}
-                </div>
+                <h2>Opciones dietéticas</h2>
+                <p class="adm-help">Se calculan desde la carta: al subirla, la app detecta qué platos son vegetarianos, veganos, sin gluten o sin lactosa,
+                y tú lo revisas en "Cartas". Estrellas: 1-2 platos = 1★, 3-5 = 2★, 6-8 = 3★, 9-11 = 4★, 12 o más = 5★.</p>
+                <ul class="adm-diet-summary">
+                    ${DIETAS.map(([key, label]) => `<li>${label}: <b>${(l.menu || []).filter(m => (m.dietas || []).includes(key)).length}</b> plato(s)</li>`).join('')}
+                </ul>
+                ${local ? `<button type="button" class="adm-btn small" data-action="adm-go-cartas" data-id="${l.id}">Revisar en Cartas →</button>` : ''}
             </section>
 
             ${l.encuesta?.respuestas ? `
@@ -182,6 +185,7 @@ function saveForm(event) {
         direccion: val('f_direccion'),
         telefono: val('f_telefono'),
         whatsapp: val('f_whatsapp').replace(/[^0-9]/g, ''),
+        whatsappReservas: val('f_whatsappReservas').replace(/[^0-9]/g, ''),
         instagram: val('f_instagram').replace(/^@/, ''),
         tiktok: val('f_tiktok').replace(/^@/, ''),
         facebook: val('f_facebook').replace(/^@/, '').replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/.*$/, ''),
@@ -193,8 +197,7 @@ function saveForm(event) {
         horariosSemana: horarios,
         caracteristicas: CARACTERISTICAS.filter((_, i) => document.getElementById(`f_c_${i}`).checked),
         caracteristicasDetalle: Object.fromEntries(CARACTERISTICAS.map((c, i) => [c, val(`f_cd_${i}`)]).filter(([, v]) => v)),
-        ...Object.fromEntries(EXTRAS.map(([key]) => [key, val(`f_x_${key}`)])),
-        ...Object.fromEntries(DIETAS.map(([key]) => [`${key}Productos`, Math.max(0, Number(val(`f_d_${key}`)) || 0)]))
+        ...Object.fromEntries(EXTRAS.map(([key]) => [key, val(`f_x_${key}`)]))
     };
 
     if (editingId === 'nuevo') {

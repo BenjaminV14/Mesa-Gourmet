@@ -1,10 +1,11 @@
-// Tarjeta de reseña: todas las fotos (cada una con sus propios "me gusta"), seguir a la persona,
+// Tarjeta de reseña: todas las fotos en un carrusel (cada una con sus propios "me gusta"), seguir a la persona,
 // guardar la reseña y "Quiero ir". No hay comentarios: la reseña queda como opinión de quien la escribe.
 import { state, isLoggedIn } from '../state.js';
 import { db, persist, getLocal, addReport, saveSession } from '../data/store.js';
 import { registerActions } from '../ui/actions.js';
 import { showToast } from '../ui/feedback.js';
-import { esc, safeUrl, initials } from '../utils/html.js';
+import { esc, safeUrl, avatarContent } from '../utils/html.js';
+import { vipsDeLocal } from '../data/metrics.js';
 import { timeAgo } from '../utils/time.js';
 import { requireAccount } from './auth.js';
 import { track } from '../services/analytics.js';
@@ -45,24 +46,30 @@ export function reviewCard(r, { showLocal = true } = {}) {
     return `
     <article class="card review-card" data-review="${esc(r.id)}">
         <div class="review-head">
-            <div class="avatar">${esc(r.usuario.avatar || initials(r.usuario.nombre))}</div>
+            <div class="avatar">${avatarContent(r.usuario)}</div>
             <div class="review-author">
-                <b>${esc(r.usuario.nombre)}</b>
+                <b>${esc(r.usuario.nombre)}${local && vipsDeLocal(local.id).some(c => c.usuario.id === r.usuario.id) ? ` <span class="vip-badge" title="Cliente VIP de ${esc(local.nombre)}">👑 VIP</span>` : ''}</b>
                 <span>${r.usuario.username ? `@${esc(r.usuario.username)} · ` : ''}${esc(timeAgo(r.fecha))}</span>
             </div>
             ${propia ? '' : `<button class="follow-btn ${siguiendo(r.usuario.id) ? 'is-on' : ''}" data-action="follow-user" data-user="${esc(r.usuario.id)}">${siguiendo(r.usuario.id) ? 'Siguiendo' : 'Seguir'}</button>`}
         </div>
         ${showLocal && local ? `<button class="review-local" data-action="open-local" data-id="${local.id}"><img src="${esc(safeUrl(local.imagen))}" alt=""> ${esc(local.nombre)}</button>` : ''}
         ${fotos.length ? `
-        <div class="review-photos ${fotos.length === 1 ? 'is-single' : ''}">
-            ${fotos.map(f => `
-                <figure class="review-photo-item">
+        <div class="photo-carousel" data-carousel="${esc(r.id)}">
+            <div class="photo-track" data-carousel-track>
+                ${fotos.map((f, i) => `
+                <figure class="review-photo-item" data-index="${i}">
                     <img src="${esc(safeUrl(f.url))}" alt="Foto de ${esc(f.item)}" loading="lazy">
                     <figcaption>
                         <span>${esc(f.item)} ${f.verificada ? '<span class="verified-dot" title="Foto verificada">✔</span>' : ''}</span>
                         ${likeButton(f, 'like-photo-item', { review: r.id })}
                     </figcaption>
                 </figure>`).join('')}
+            </div>
+            ${fotos.length > 1 ? `
+            <button class="carousel-btn prev" data-action="photo-step" data-dir="-1" aria-label="Foto anterior" hidden>‹</button>
+            <button class="carousel-btn next" data-action="photo-step" data-dir="1" aria-label="Foto siguiente">›</button>
+            <span class="carousel-count">1 / ${fotos.length}</span>` : ''}
         </div>` : ''}
         <p class="review-dishes">🍴 ${esc((r.productos || []).join(', '))}</p>
         <div class="review-scores">
@@ -93,7 +100,30 @@ function findReview(id) {
     return db.reviews.find(r => String(r.id) === String(id));
 }
 
+// Carrusel de fotos: la primera que subió la persona y, con la flecha, las siguientes
+function syncCarousel(box) {
+    const track = box.querySelector('[data-carousel-track]');
+    const total = track.children.length;
+    const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+    const count = box.querySelector('.carousel-count');
+    if (count) count.textContent = `${i + 1} / ${total}`;
+    const prev = box.querySelector('.carousel-btn.prev');
+    const next = box.querySelector('.carousel-btn.next');
+    if (prev) prev.hidden = i === 0;
+    if (next) next.hidden = i >= total - 1;
+}
+
+document.addEventListener('scroll', e => {
+    const track = e.target instanceof Element && e.target.closest?.('[data-carousel-track]');
+    if (track) syncCarousel(track.parentElement);
+}, true);
+
 registerActions({
+    'photo-step': el => {
+        const box = el.closest('[data-carousel]');
+        const track = box.querySelector('[data-carousel-track]');
+        track.scrollBy({ left: Number(el.dataset.dir) * track.clientWidth, behavior: 'smooth' });
+    },
     'like-review': el => {
         if (!requireAccount('dar me gusta')) return;
         const review = findReview(el.dataset.id);

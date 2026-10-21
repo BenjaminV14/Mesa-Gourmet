@@ -1,7 +1,9 @@
 // Importación de la encuesta a los dueños de locales (Excel o CSV).
 // Reconoce qué pregunta corresponde a cada dato de la app y traduce las respuestas
 // ("Sí", "No", "Solo en terraza", "Lunes a viernes 12 a 23"...) a etiquetas y horarios.
-import { normalize } from '../utils/text.js';
+import { normalize, formatTelefono } from '../utils/text.js';
+
+export { formatTelefono };
 
 export const CARACTERISTICAS_KEYWORDS = {
     'Baño / WC': ['bano', 'banos', 'wc', 'servicio higienico', 'servicios higienicos'],
@@ -149,16 +151,6 @@ function daysIn(segment) {
 
 export function horasLegibles(texto) {
     return String(texto).replace(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b/gi, (_, h, m, ap) => hhmm(h, m, ap) || _);
-}
-
-// "71 2223612" -> "+56 71 222 3612", "569 72917701" -> "+56 9 7291 7701"
-export function formatTelefono(texto) {
-    let d = String(texto).replace(/[^0-9]/g, '');
-    if (d.length === 9) d = `56${d}`;
-    if (d.length !== 11 || !d.startsWith('56')) return String(texto).trim();
-    return d[2] === '9'
-        ? `+56 9 ${d.slice(3, 7)} ${d.slice(7)}`
-        : `+56 ${d.slice(2, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
 }
 
 /**

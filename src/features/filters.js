@@ -1,7 +1,7 @@
 // Filtros del inicio: dietas, abierto ahora, distancia, nota mínima, tipo de comida y características.
 import { state, FILTROS_VACIOS } from '../state.js';
 import { registerActions } from '../ui/actions.js';
-import { estaAbierto } from '../utils/time.js';
+import { estaAbierto, estadoHorario } from '../utils/time.js';
 import { esc } from '../utils/html.js';
 import { CATEGORIAS, categoriasDePlato } from '../data/categorias.js';
 import { DIETAS, dietaLocal, notaActual } from '../data/metrics.js';
@@ -53,15 +53,20 @@ export function cumpleFiltros(local, f = state.filtros) {
  * - Recomendados: destacados primero, luego mejor nota (los cercanos desempatan)
  * - Cerca de ti: por distancia
  */
+const PRIORIDAD_ESTADO = { abierto: 0, 'cierra-pronto': 0, 'abre-pronto': 1, cerrado: 2 };
+
 export function resultadosInicio() {
     const result = search(state.query);
     result.locales = result.locales.filter(r => cumpleFiltros(r.local));
     result.platos = result.platos.filter(p => cumpleFiltros(p.local));
     if (!state.query) {
+        // Primero los abiertos, después los que abren pronto y al final los cerrados
+        const abierto = l => PRIORIDAD_ESTADO[estadoHorario(l).codigo] ?? 2;
         if (state.modoInicio === 'cerca') {
-            result.locales.sort((a, b) => distanceTo(a.local) - distanceTo(b.local));
+            result.locales.sort((a, b) => (abierto(a.local) - abierto(b.local)) || (distanceTo(a.local) - distanceTo(b.local)));
         } else {
             result.locales.sort((a, b) =>
+                (abierto(a.local) - abierto(b.local)) ||
                 (isSponsored(b.local) - isSponsored(a.local)) ||
                 (notaActual(b.local.id).total - notaActual(a.local.id).total) ||
                 (distanceTo(a.local) - distanceTo(b.local)));

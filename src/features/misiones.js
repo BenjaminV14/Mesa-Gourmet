@@ -116,6 +116,30 @@ export function buildDiscoverFeed(now = Date.now()) {
     return feed;
 }
 
+function slideHtml({ foto, review }) {
+    const local = getLocal(review.localId);
+    return `
+    <div class="photo-slide">
+        <img class="photo-slide-bg" src="${esc(safeUrl(foto.url))}" alt="${esc(foto.item)}">
+        <div class="photo-slide-overlay"></div>
+        <div class="photo-slide-info">
+            <h3>${esc(foto.item)}</h3>
+            <p><b>${esc(local?.nombre || '')}</b> · @${esc(review.usuario.username || review.usuario.nombre)} · ${esc(timeAgo(review.fecha))}</p>
+            <p class="photo-quote">"${esc(review.comentario.slice(0, 90))}${review.comentario.length > 90 ? '…' : ''}"</p>
+            <button class="video-local-btn" data-action="photo-go-local" data-id="${local?.id}">¡Me tentó! Ver local</button>
+        </div>
+        <div class="photo-slide-actions">${likeButton(foto, 'like-photo-item', { review: review.id })}</div>
+    </div>`;
+}
+
+// Descubrir no se acaba: al acercarse al final se agrega otra tanda de fotos de la comunidad, en otro orden
+function agregarTanda() {
+    const nuevas = buildDiscoverFeed();
+    if (!nuevas.length) return;
+    slides.push(...nuevas);
+    document.getElementById('photoFeedTrack')?.insertAdjacentHTML('beforeend', nuevas.map(slideHtml).join(''));
+}
+
 function openPhotoFeed() {
     slides = buildDiscoverFeed();
     index = 0;
@@ -131,22 +155,7 @@ function openPhotoFeed() {
             <button class="photo-feed-close" data-action="photo-close" aria-label="Cerrar">✕</button>
             <span class="photo-feed-counter" id="photoFeedCounter"></span>
         </div>
-        <div class="photo-feed-track" id="photoFeedTrack">
-            ${slides.map(({ foto, review }) => {
-                const local = getLocal(review.localId);
-                return `
-                <div class="photo-slide">
-                    <img class="photo-slide-bg" src="${esc(safeUrl(foto.url))}" alt="${esc(foto.item)}">
-                    <div class="photo-slide-overlay"></div>
-                    <div class="photo-slide-info">
-                        <h3>${esc(foto.item)}</h3>
-                        <p><b>${esc(local?.nombre || '')}</b> · @${esc(review.usuario.username || review.usuario.nombre)} · ${esc(timeAgo(review.fecha))}</p>
-                        <p class="photo-quote">"${esc(review.comentario.slice(0, 90))}${review.comentario.length > 90 ? '…' : ''}"</p>
-                        <button class="video-local-btn" data-action="photo-go-local" data-id="${local?.id}">¡Me tentó! Ver local</button>
-                    </div>
-                    <div class="photo-slide-actions">${likeButton(foto, 'like-photo-item', { review: review.id })}</div>
-                </div>`;
-            }).join('')}
+        <div class="photo-feed-track" id="photoFeedTrack">${slides.map(slideHtml).join('')}
         </div>
         <button class="photo-nav-btn prev" data-action="photo-nav" data-dir="-1" aria-label="Anterior">◀</button>
         <button class="photo-nav-btn next" data-action="photo-nav" data-dir="1" aria-label="Siguiente">▶</button>
@@ -162,15 +171,15 @@ function openPhotoFeed() {
 }
 
 function navigate(dir) {
+    if (index + dir >= slides.length - 2) agregarTanda();
     index = Math.max(0, Math.min(slides.length - 1, index + dir));
     updatePosition();
 }
 
 function updatePosition() {
     document.getElementById('photoFeedTrack').style.transform = `translateX(-${index * 100}%)`;
-    document.getElementById('photoFeedCounter').textContent = `${index + 1} / ${slides.length}`;
+    document.getElementById('photoFeedCounter').textContent = `Foto ${index + 1}`;
     document.querySelector('.photo-nav-btn.prev').classList.toggle('disabled', index === 0);
-    document.querySelector('.photo-nav-btn.next').classList.toggle('disabled', index === slides.length - 1);
 }
 
 function closePhotoFeed() {

@@ -27,7 +27,7 @@ export function renderInicio() {
         </div>
         ${!state.query && state.modoInicio === 'cerca' && !state.hasRealLocation
             ? `<button class="location-hint" data-action="ask-location">📍 Estamos usando el centro de Talca. <b>Activar mi ubicación</b></button>` : ''}
-        ${state.query ? '' : `<button class="random-btn" data-action="random-local">🎲 ¿No sabes qué comer? Te recomendamos uno</button>`}
+        ${state.query ? '' : `<button class="random-btn" data-action="random-local">¡Recomendación Aleatoria! 🎲</button>`}
         <div id="resultsContainer"></div>
     `;
     renderResults();

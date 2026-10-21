@@ -47,7 +47,14 @@ function renderOptions(pickerId) {
         const resto = db.locales.filter(l => !recientes.includes(l)).sort((a, b) => a.nombre.localeCompare(b.nombre));
         if (resto.length) html += `<p class="picker-label">Todos los locales</p>${resto.map(l => optionRow(pickerId, l)).join('')}`;
     } else {
-        const r = search(q).locales.map(x => x.local);
+        // Primero por nombre ("empan" -> ¡Que Empanadas!, "ramses" -> La Cocina de Ramsés), después el buscador general
+        const base = t => normalize(t).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+        const palabras = base(q).split(' ').filter(Boolean);
+        const porNombre = db.locales.filter(l => {
+            const nombre = base(l.nombre).split(' ');
+            return palabras.every(p => nombre.some(w => w.startsWith(p) || (p.length >= 4 && w.includes(p))));
+        });
+        const r = [...new Set([...porNombre, ...search(q).locales.map(x => x.local)])];
         html = r.length ? r.map(l => optionRow(pickerId, l)).join('') : '<p class="picker-empty">No encontramos ese local. Revisa cómo se escribe.</p>';
     }
     list.innerHTML = html;

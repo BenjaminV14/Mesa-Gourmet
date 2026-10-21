@@ -6,7 +6,7 @@ import { renderInicio, trackSearch } from './inicio.js';
 import { search } from './search.js';
 import { db, loadSearchHistory, pushSearchHistory, clearSearchHistory } from '../data/store.js';
 import { CATEGORIAS } from '../data/categorias.js';
-import { esc, safeUrl, formatPrice, initials } from '../utils/html.js';
+import { esc, safeUrl, formatPrice, avatarContent } from '../utils/html.js';
 import { normalize } from '../utils/text.js';
 import { estaAbierto, estadoHorario } from '../utils/time.js';
 import { formatDistance } from '../utils/geo.js';
@@ -51,7 +51,7 @@ export function updateHeader() {
     const avatar = document.getElementById('userAvatar');
     const name = document.getElementById('userName');
     if (isLoggedIn()) {
-        avatar.textContent = initials(state.user.nombre);
+        avatar.innerHTML = avatarContent(state.user);
         name.textContent = state.user.nombre.split(' ')[0];
     } else {
         avatar.textContent = 'G';

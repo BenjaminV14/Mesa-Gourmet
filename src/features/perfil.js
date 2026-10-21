@@ -2,10 +2,12 @@
 // favoritos, reseñas propias y configuración. Solo para cuentas registradas.
 import { state, FILTROS_VACIOS } from '../state.js';
 import { db, persist, saveSession, getLocal } from '../data/store.js';
-import { CATEGORIAS, getCategoria } from '../data/categorias.js';
+import { TIPOS_PLATO, getTipo, buscarTipos } from '../data/tipos-plato.js';
+import { vipDeUsuario } from '../data/metrics.js';
+import { compressImage } from '../services/ai.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
-import { esc, safeUrl, initials } from '../utils/html.js';
+import { esc, safeUrl, avatarContent } from '../utils/html.js';
 import { levelProgress, levelName, visitedLocalesCount, computeLogros, userReviews } from './gamification.js';
 import { reviewCard } from './review-card.js';
 import { logout } from './auth.js';
@@ -13,6 +15,7 @@ import { canInstall } from '../services/pwa.js';
 import { DIETAS } from '../data/metrics.js';
 
 let tab = 'actividad';
+let avatarNuevo; // foto elegida en "Editar perfil" que se guarda al presionar Guardar
 
 export function showWelcomeIfNeeded() {
     if (!state.user || state.isGuest || state.user.bienvenidaVista) return;
@@ -21,13 +24,17 @@ export function showWelcomeIfNeeded() {
         title: `¡Bienvenido/a, ${state.user.nombre.split(' ')[0]}!`,
         body: `
             <p class="sheet-text">¿Cuál es tu comida favorita? Será tu primera insignia visible; las demás están ocultas y las irás descubriendo.</p>
-            <div class="fav-products-grid">
-                ${CATEGORIAS.map(c => `
-                    <button class="fav-product-btn" data-action="pick-fav-product" data-cat="${c.id}"><span>${c.emoji}</span><span>${esc(c.nombre)}</span></button>`).join('')}
-            </div>`,
+            <div class="fav-search"><span aria-hidden="true">🔍</span><input id="favSearch" type="search" placeholder="Busca: completo, pastel de choclo, ceviche…" autocomplete="off" data-input="fav-search" aria-label="Buscar comida favorita"></div>
+            <div class="fav-products-grid" id="favGrid">${favGrid(TIPOS_PLATO)}</div>`,
         actions: [{ label: 'Elegir después', action: 'skip-welcome', variant: 'ghost' }],
         dismissible: false
     });
+}
+
+function favGrid(tipos) {
+    return tipos.length
+        ? tipos.map(t => `<button class="fav-product-btn" data-action="pick-fav-product" data-cat="${t.id}"><span>${t.emoji}</span><span>${esc(t.nombre)}</span></button>`).join('')
+        : '<p class="sheet-text">No encontramos esa comida. Prueba con otra palabra.</p>';
 }
 
 function localRow(local, extra = '') {
@@ -68,14 +75,15 @@ export function renderPerfil() {
     const u = state.user;
     const { count, level, next, progress } = levelProgress();
     const logros = computeLogros().filter(l => l.visible);
-    const fav = getCategoria(u.productoFavorito);
+    const fav = getTipo(u.productoFavorito);
+    const vip = vipDeUsuario(u.id);
     const tabs = [['actividad', 'Mis reseñas'], ['guardados', 'Guardados'], ['quiero', 'Quiero ir'], ['favoritos', 'Favoritos']];
 
     document.getElementById('mainContent').innerHTML = `
         <section class="profile-card">
             <div class="profile-cover"></div>
             <div class="profile-identity">
-                <div class="profile-avatar-large">${esc(initials(u.nombre))}</div>
+                <button class="profile-avatar-large" data-action="edit-profile" aria-label="Cambiar foto de perfil">${avatarContent(u)}<span class="avatar-edit">📷</span></button>
                 <div class="profile-names">
                     <h2>${esc(u.nombre)}</h2>
                     <p>@${esc(u.username)} · <span class="muted">${esc(u.email)}</span></p>
@@ -94,6 +102,7 @@ export function renderPerfil() {
                 <div><b>${logros.filter(l => l.unlocked).length}</b><span>Insignias</span></div>
             </div>
             <div class="profile-badges">
+                ${vip.map(l => `<button class="badge-chip is-vip" data-action="open-local" data-id="${l.id}">👑 Cliente VIP de ${esc(l.nombre)}</button>`).join('')}
                 ${fav ? `<span class="badge-chip is-fav">${fav.emoji} Fan de ${esc(fav.nombre.toLowerCase())}</span>` : '<button class="badge-chip" data-action="open-welcome">⭐ Elige tu comida favorita</button>'}
                 ${logros.filter(l => l.unlocked).map(l => `<span class="badge-chip">${l.emoji} ${esc(l.titulo)}</span>`).join('')}
             </div>
@@ -145,10 +154,11 @@ registerActions({
         state.user.bienvenidaVista = true;
         saveSession(state.user);
         closeSheet('welcome');
-        const c = getCategoria(el.dataset.cat);
+        const c = getTipo(el.dataset.cat);
         showToast(`${c.emoji} Insignia visible: ${c.insignia}`);
         if (state.currentView === 'perfil') renderPerfil();
     },
+    'fav-search': el => { document.getElementById('favGrid').innerHTML = favGrid(buscarTipos(el.value)); },
     'skip-welcome': () => {
         state.user.bienvenidaVista = true;
         saveSession(state.user);
@@ -158,10 +168,33 @@ registerActions({
         state.user.bienvenidaVista = false;
         showWelcomeIfNeeded();
     },
+    'avatar-file': async el => {
+        const file = el.files[0];
+        if (!file) return;
+        try {
+            // Foto cuadrada y liviana; con Supabase pasa por la misma revisión de IA que las fotos de platos
+            avatarNuevo = await compressImage(file, 320, 0.8);
+            document.getElementById('avatarPreview').innerHTML = `<img src="${esc(avatarNuevo)}" alt="">`;
+        } catch (err) {
+            showToast(err.message || 'No se pudo usar esa imagen.');
+        }
+    },
+    'avatar-remove': () => {
+        avatarNuevo = null;
+        document.getElementById('avatarPreview').innerHTML = avatarContent({ nombre: state.user.nombre });
+    },
     'edit-profile': () => openSheet({
         id: 'editProfile',
         title: 'Editar perfil',
         body: `<form class="sheet-form">
+            <div class="avatar-picker">
+                <span class="profile-avatar-large" id="avatarPreview">${avatarContent(state.user)}</span>
+                <div>
+                    <label class="btn btn-outline avatar-upload">📷 Subir foto de perfil<input type="file" id="avatarFile" accept="image/*" data-change="avatar-file" hidden></label>
+                    ${state.user.avatarUrl ? '<button type="button" class="link-btn" data-action="avatar-remove">Quitar foto</button>' : ''}
+                    <p class="sheet-text small">Una foto de tu cara o la que te represente. Se revisa que sea apropiada.</p>
+                </div>
+            </div>
             <label for="newName">Nombre visible</label><input id="newName" maxlength="40" value="${esc(state.user.nombre)}">
             <label for="newUsername">Nombre de usuario</label>
             <div class="input-prefix"><span>@</span><input id="newUsername" maxlength="24" value="${esc(state.user.username)}" autocapitalize="none" spellcheck="false"></div>
@@ -180,12 +213,18 @@ registerActions({
         if (db.reviews.some(r => r.usuario.username === username && r.usuario.id !== state.user.id)) return fail('Ese nombre de usuario ya está en uso.');
         state.user.nombre = nombre;
         state.user.username = username;
-        db.reviews.filter(r => r.usuario.id === state.user.id).forEach(r => { r.usuario.nombre = nombre; r.usuario.username = username; });
+        if (avatarNuevo !== undefined) state.user.avatarUrl = avatarNuevo;
+        avatarNuevo = undefined;
+        db.reviews.filter(r => r.usuario.id === state.user.id).forEach(r => {
+            r.usuario.nombre = nombre;
+            r.usuario.username = username;
+            r.usuario.avatarUrl = state.user.avatarUrl || null;
+        });
         persist();
         saveSession(state.user);
         closeSheet('editProfile');
         document.getElementById('userName').textContent = nombre.split(' ')[0];
-        document.getElementById('userAvatar').textContent = initials(nombre);
+        document.getElementById('userAvatar').innerHTML = avatarContent(state.user);
         renderPerfil();
     },
     'settings-notif': () => {

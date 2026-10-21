@@ -25,3 +25,11 @@ export function formatPrice(value) {
 export function initials(name) {
     return String(name || '?').trim().split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
 }
+
+/** Contenido del círculo de avatar: la foto de perfil si existe, si no las iniciales */
+export function avatarContent(usuario) {
+    const url = usuario?.avatarUrl;
+    return url && /^(data:image\/|https:)/.test(url)
+        ? `<img src="${esc(url)}" alt="">`
+        : esc(usuario?.avatar || initials(usuario?.nombre || '?'));
+}

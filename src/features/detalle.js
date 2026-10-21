@@ -1,11 +1,12 @@
 // Ficha de un local: Info, Carta, Reseñas y Eventos y promociones (esta última solo para cuentas registradas)
 import { state, isLoggedIn } from '../state.js';
 import { getLocal, addReport, saveSession } from '../data/store.js';
-import { notas30, notasHistoricas, cartaLocal, DIETAS, dietaLocal, distincionesActuales, distincionesHistoricas, reviewsPublicadasDe } from '../data/metrics.js';
+import { vipsDeLocal, notas30, notasHistoricas, cartaLocal, DIETAS, dietaLocal, distincionesActuales, distincionesHistoricas, reviewsPublicadasDe } from '../data/metrics.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
 import { estadoBadge, sponsoredBadge, emptyState, ratingStars } from '../ui/cards.js';
 import { esc, safeUrl, formatPrice } from '../utils/html.js';
+import { formatTelefono } from '../utils/text.js';
 import { estadoHorario, DIAS_SEMANA, formatFechaEvento } from '../utils/time.js';
 import { requireAccount } from './auth.js';
 import { reviewCard } from './review-card.js';
@@ -21,18 +22,6 @@ const FEATURE_ICONS = {
     'Apto para menores de edad': '👨‍👩‍👧', 'Acepta reservas': '📅', 'Arriendo para eventos': '🎉', 'Segundo piso': '🪜',
     'Barra': '🍸', 'Pedidos para llevar': '🥡', 'Consumo en el local': '🍽️'
 };
-
-// Lo que conviene saber antes de ir (sale de la encuesta; solo se muestra lo que existe)
-const ANTES_DE_IR = [
-    ['referencia', '📍', 'Referencia'],
-    ['notaAcceso', '🚶', 'Para llegar'],
-    ['mediosPago', '💳', 'Medios de pago'],
-    ['horasPeak', '⏰', 'Más gente'],
-    ['diasPeak', '📆', 'Días con más gente'],
-    ['ambiente', '👥', 'Ambiente'],
-    ['tematica', '🎨', 'Decoración'],
-    ['capacidad', '🪑', 'Capacidad']
-];
 
 let currentTab = 'info';
 
@@ -101,21 +90,48 @@ function switchLocalTab(tab) {
 
 // =================== INFO ===================
 
-function scoreBlock(titulo, notas, vacio) {
-    if (!notas) return `<div class="score-panel is-empty"><span class="score-panel-title">${titulo}</span><p>${vacio}</p></div>`;
+// Nota principal: promedio de los últimos 30 días (grande), comida y servicio por separado,
+// y al lado la nota histórica destacada en dorado.
+function scoreBlock(n30, hist) {
+    const historica = hist ? `
+        <div class="score-hist" title="Promedio de todas las reseñas">
+            <span>Histórica</span>
+            <b>${hist.total.toFixed(1)}</b>
+            <small>🍽️ ${hist.comida.toFixed(1)} · 🤵 ${hist.servicio.toFixed(1)}</small>
+        </div>` : '';
     return `
-        <div class="score-panel">
-            <span class="score-panel-title">${titulo}</span>
-            <div class="score-main">
-                <b>${notas.total.toFixed(1)}</b>
-                ${ratingStars(notas.total, 18)}
+        <div class="score-panel ${n30 ? '' : 'is-empty'}">
+            <div class="score-now">
+                <div class="score-main">
+                    <b>${n30 ? n30.total.toFixed(1) : '–'}</b>
+                    ${ratingStars(n30 ? n30.total : 0, 18)}
+                </div>
+                ${n30 ? `
+                <div class="score-split">
+                    <span>🍽️ Comida <b>${n30.comida.toFixed(1)}</b></span>
+                    <span>🤵 Servicio <b>${n30.servicio.toFixed(1)}</b></span>
+                </div>
+                <small class="score-count">${n30.n} reseña${n30.n === 1 ? '' : 's'} este mes</small>`
+                : '<p class="score-empty">Aún sin reseñas este mes. ¡Sé el primero!</p>'}
             </div>
-            <div class="score-split">
-                <span>🍽️ Comida <b>${notas.comida.toFixed(1)}</b></span>
-                <span>🤵 Servicio <b>${notas.servicio.toFixed(1)}</b></span>
-                <span>💬 <b>${notas.n}</b> reseña${notas.n === 1 ? '' : 's'}</span>
-            </div>
+            ${historica}
         </div>`;
+}
+
+// Íconos de cada red social
+const REDES_ICONO = {
+    instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.2" fill="currentColor"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.3H7.9v3h2.6V21h3z"/></svg>',
+    tiktok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.5 3c.3 2.1 1.6 3.6 3.7 3.8v3c-1.4 0-2.6-.4-3.7-1.1v6.1c0 3.1-2.5 5.6-5.6 5.6S5.3 17.9 5.3 14.8s2.5-5.6 5.6-5.6c.3 0 .6 0 .9.1v3.1a2.6 2.6 0 1 0 1.7 2.4V3h3z"/></svg>',
+    website: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>'
+};
+
+// Enlace de WhatsApp con un mensaje de reserva listo para enviar
+function whatsappUrl(local) {
+    const numero = String(local.whatsappReservas || local.whatsapp || '').replace(/[^0-9]/g, '');
+    if (!numero) return '';
+    const texto = `Hola, vengo de Mesa Gourmet y me gustaría reservar una mesa en ${local.nombre}. ¿Tienen disponibilidad?`;
+    return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
 }
 
 // "Apto para Fumadores (Solo en Terraza)" -> etiqueta "Apto para fumadores" + detalle "Solo en terraza"
@@ -131,31 +147,31 @@ function renderInfo(local) {
     const hist = notasHistoricas(local.id);
     const hoy = DIAS_SEMANA[new Date().getDay()];
     const tel = (local.telefono || '').replace(/[^\d+]/g, '');
+    const fb = local.facebook && (/\s/.test(local.facebook)
+        ? `https://www.facebook.com/search/top?q=${encodeURIComponent(local.facebook)}`
+        : `https://facebook.com/${encodeURIComponent(local.facebook)}`);
     const redes = [
-        local.website && `<a href="${esc(safeUrl(local.website))}" target="_blank" rel="noopener" class="social-link-btn website">🌐 Sitio web</a>`,
-        local.instagram && `<a href="https://instagram.com/${encodeURIComponent(local.instagram)}" target="_blank" rel="noopener" class="social-link-btn instagram">📸 Instagram</a>`,
-        local.tiktok && `<a href="https://tiktok.com/@${encodeURIComponent(local.tiktok)}" target="_blank" rel="noopener" class="social-link-btn tiktok">🎵 TikTok</a>`,
-        local.facebook && `<a href="${/\s/.test(local.facebook) ? `https://www.facebook.com/search/top?q=${encodeURIComponent(local.facebook)}` : `https://facebook.com/${encodeURIComponent(local.facebook)}`}" target="_blank" rel="noopener" class="social-link-btn facebook">👍 Facebook</a>`
-    ].filter(Boolean);
+        local.instagram && ['instagram', 'Instagram', `https://instagram.com/${encodeURIComponent(local.instagram)}`, `@${local.instagram}`],
+        local.facebook && ['facebook', 'Facebook', fb, local.facebook],
+        local.tiktok && ['tiktok', 'TikTok', `https://tiktok.com/@${encodeURIComponent(local.tiktok)}`, `@${local.tiktok}`],
+        local.website && ['website', 'Sitio web', safeUrl(local.website), local.website.replace(/^https?:\/\//, '')]
+    ].filter(Boolean).map(([red, nombre, url, usuario]) => `
+        <a href="${esc(url)}" target="_blank" rel="noopener" class="social-link-btn ${red}" aria-label="${nombre}: ${esc(usuario)}">
+            <span class="social-icon">${REDES_ICONO[red]}</span><span class="social-name">${nombre}</span>
+        </a>`);
     const dietas = DIETAS.map(d => ({ ...d, ...dietaLocal(local, d.key) })).filter(d => d.estrellas > 0);
     const distinciones = [...distincionesActuales(local.id).map(d => d.texto), ...distincionesHistoricas(local.id).map(d => d.texto)];
 
     return `
         <div class="scores">
-            ${scoreBlock('Últimos 30 días', n30, 'Sin reseñas en los últimos 30 días. ¡Sé el primero!')}
-            ${hist && hist.n !== (n30 ? n30.n : -1) ? `
-            <div class="score-history">
-                <span>Nota histórica</span>
-                <span>🍽️ ${hist.comida.toFixed(1)} · 🤵 ${hist.servicio.toFixed(1)}</span>
-                <span>${hist.n ? `${hist.n} reseñas` : 'nota inicial'}</span>
-            </div>` : ''}
+            ${scoreBlock(n30, hist)}
         </div>
 
         ${local.slogan ? `<p class="detail-slogan">“${esc(local.slogan)}”</p>` : ''}
         ${local.descripcion ? `<p class="detail-desc">${esc(local.descripcion)}</p>` : ''}
 
         <h3 class="section-title">Contacto y ubicación</h3>
-        <button class="info-row" data-action="focus-map" data-id="${local.id}">📍 <span><u>${esc(local.direccion || 'Dirección por confirmar')}</u><small>${local.referencia ? `${esc(local.referencia)} · ` : ''}Ver en el mapa</small></span></button>
+        <button class="info-row" data-action="focus-map" data-id="${local.id}">📍 <span><u>${esc(local.direccion || 'Dirección por confirmar')}</u><small>Ver en el mapa</small></span></button>
         ${tel ? `
         <div class="info-row">📞 <span><b>${esc(local.telefono)}</b>
             <span class="info-row-actions">
@@ -163,7 +179,10 @@ function renderInfo(local) {
                 <button class="mini-btn" data-action="copy-text" data-text="${esc(local.telefono)}">Copiar</button>
             </span></span>
         </div>` : ''}
-        ${local.whatsapp ? `<button class="btn whatsapp-btn" data-action="whatsapp" data-id="${local.id}">💬 Reservar por WhatsApp</button>` : ''}
+        ${whatsappUrl(local) ? `<a class="btn whatsapp-btn" href="${esc(whatsappUrl(local))}" target="_blank" rel="noopener" data-action="whatsapp-track" data-id="${local.id}">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.6-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+            Reservar por WhatsApp</a>
+        <p class="whatsapp-num">Se abre WhatsApp al ${esc(formatTelefono(local.whatsappReservas || local.whatsapp))} con tu mensaje de reserva listo.</p>` : ''}
 
         ${redes.length ? `<div class="social-links-container">${redes.join('')}</div>` : ''}
 
@@ -175,23 +194,18 @@ function renderInfo(local) {
             ${local.horarioFeriados ? `<div class="hours-row"><span>Feriados</span><span>${esc(local.horarioFeriados)}</span></div>` : ''}
         </div>
 
-        ${(local.caracteristicas || []).length ? `
+        ${(local.caracteristicas || []).length || local.mediosPago ? `
         <h3 class="section-title">Características</h3>
         <p class="feature-hint">Toca una característica para ver el detalle</p>
         <div class="feature-pills">
-            ${local.caracteristicas.map(c => {
+            ${local.mediosPago ? `<button class="feature-pill has-detail" data-action="feature-detail" aria-label="Medios de pago: ${esc(local.mediosPago)}">💳 Medios de pago<span class="feature-tip" role="tooltip">${esc(local.mediosPago)}</span></button>` : ''}
+            ${(local.caracteristicas || []).map(c => {
                 const { label, detalle } = featureParts(local, c);
                 return detalle
                     ? `<button class="feature-pill has-detail" data-action="feature-detail" data-detail="${esc(detalle)}" aria-label="${esc(label)}: ${esc(detalle)}">${FEATURE_ICONS[c] || '✨'} ${esc(label)}<span class="feature-tip" role="tooltip">${esc(detalle)}</span></button>`
                     : `<span class="feature-pill">${FEATURE_ICONS[c] || '✨'} ${esc(label)}</span>`;
             }).join('')}
         </div>` : ''}
-
-        ${ANTES_DE_IR.some(([k]) => local[k]) ? `
-        <h3 class="section-title">Antes de ir</h3>
-        <dl class="before-list">
-            ${ANTES_DE_IR.filter(([k]) => local[k]).map(([k, icon, label]) => `<div class="before-row"><dt>${icon} ${label}</dt><dd>${esc(local[k])}</dd></div>`).join('')}
-        </dl>` : ''}
 
         ${dietas.length ? `
         <h3 class="section-title">Opciones alimentarias</h3>
@@ -253,6 +267,12 @@ function renderResenas(local) {
             <h3 class="section-title">Opiniones (${reviews.length})</h3>
             <button class="chip-btn chip-gold" data-action="write-review" data-id="${local.id}">＋ Reseñar</button>
         </div>
+        ${vipsDeLocal(local.id).length ? `
+        <div class="vip-box">
+            <b>👑 Clientes VIP</b>
+            <span>${vipsDeLocal(local.id).slice(0, 5).map(c => `@${esc(c.usuario.username || c.usuario.nombre)}`).join(' · ')}</span>
+            <small>Vinieron 5 veces o más en ${esc(vipsDeLocal(local.id)[0].mes)}. Se les reconoce todo el mes siguiente.</small>
+        </div>` : ''}
         ${reviews.length
             ? `<div class="review-list">${reviews.map(r => reviewCard(r, { showLocal: false })).join('')}</div>`
             : emptyState('✍️', 'Nadie ha opinado aún. ¡Sé el primero!')}
@@ -398,14 +418,8 @@ registerActions({
         document.querySelectorAll('.feature-pill.show-tip').forEach(p => p.classList.remove('show-tip'));
         if (!open) el.classList.add('show-tip');
     },
-    'whatsapp': el => {
-        const local = getLocal(Number(el.dataset.id));
-        const phone = (local.whatsapp || '').replace(/[^0-9]/g, '');
-        if (!phone) return showToast('Este local no tiene WhatsApp registrado.');
-        track('click_whatsapp', { localId: local.id });
-        const msg = encodeURIComponent(`Hola, vengo de Mesa Gourmet y me gustaría hacer una reserva en ${local.nombre}.`);
-        window.open(`https://wa.me/${phone}?text=${msg}`, '_blank', 'noopener');
-    },
+    // El enlace abre WhatsApp por sí solo; aquí solo se registra el clic
+    'whatsapp-track': el => track('click_whatsapp', { localId: Number(el.dataset.id) }),
     'copy-text': el => {
         navigator.clipboard?.writeText(el.dataset.text)
             .then(() => showToast(`Copiado: ${el.dataset.text}`, 1800))

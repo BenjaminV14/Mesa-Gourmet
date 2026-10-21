@@ -5,6 +5,13 @@ import { state, isLoggedIn, normalizeUser } from '../state.js';
 import { saveSession } from '../data/store.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
+
+// "benjamin.vergara92@gmail.com" -> "Benjamin Vergara". Con Google (al conectar Supabase) llega el nombre real de la cuenta.
+function nombreDesdeCorreo(email) {
+    const partes = email.split('@')[0].replace(/\d+/g, ' ').split(/[._\-+\s]+/).filter(p => p.length > 1);
+    const nombre = partes.slice(0, 3).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+    return nombre.length >= 2 ? nombre : email.split('@')[0];
+}
 import { track } from '../services/analytics.js';
 
 let onEnterApp = () => {};
@@ -53,7 +60,7 @@ function handleSubmit(event) {
     state.user = normalizeUser(previous || {
         id: email,
         email,
-        nombre: nombre || email.split('@')[0],
+        nombre: nombre || nombreDesdeCorreo(email),
         productoFavorito: null,
         bienvenidaVista: false,
         creado: new Date().toISOString()

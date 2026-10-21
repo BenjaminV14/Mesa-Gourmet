@@ -2,7 +2,7 @@
 import { db, persist } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
-import { rankingGeneral, clientesFrecuentes, cerrarMes, MESES } from '../../data/metrics.js';
+import { rankingGeneral, topClientes, vipsDeLocal, cerrarMes, MESES } from '../../data/metrics.js';
 import { toast, confirmDialog, emptyRow, statusPill } from '../ui.js';
 
 let rerender = () => {};
@@ -19,8 +19,8 @@ export function renderMetricas() {
     const fecha = fechaMes();
     const mes = `${MESES[fecha.getMonth()]} ${fecha.getFullYear()}`;
     const top = rankingGeneral().slice(0, 10);
-    const clientes = db.locales.map(local => ({ local, lista: clientesFrecuentes(local.id, fecha) }))
-        .filter(x => x.lista.length);
+    const clientes = db.locales.map(local => ({ local, lista: topClientes(local.id, fecha), vips: vipsDeLocal(local.id, fecha) }))
+        .filter(x => x.lista.length || x.vips.length);
     const cierres = [...(db.cierres || [])].reverse();
 
     return `
@@ -46,23 +46,26 @@ export function renderMetricas() {
 
         <section class="adm-card">
             <div class="adm-head">
-                <h2>Clientes frecuentes · ${esc(mes)}</h2>
+                <h2>Top 50 clientes por local · ${esc(mes)}</h2>
                 <div class="adm-row-actions">
                     <button class="adm-btn small" data-action="adm-month" data-dir="-1" aria-label="Mes anterior">←</button>
                     <button class="adm-btn small" data-action="adm-month" data-dir="1" ${mesOffset >= 0 ? 'disabled' : ''} aria-label="Mes siguiente">→</button>
                 </div>
             </div>
-            <p class="adm-help">Cada reseña cuenta como una visita. Con <b>5 visitas o más</b> al mismo local en el mes, la persona es <b>cliente del mes</b> de ese local.</p>
-            ${clientes.length ? clientes.map(({ local, lista }) => `
+            <p class="adm-help">Cada reseña cuenta como una visita. Con <b>5 visitas o más</b> al mismo local en el mes, la persona es <b>cliente VIP</b>
+            de ese local y se le reconoce durante todo el mes siguiente (sale con 👑 en sus reseñas, en su perfil y en la ficha del local).</p>
+            ${clientes.length ? clientes.map(({ local, lista, vips }) => `
                 <h3 class="adm-subtitle">${esc(local.nombre)}</h3>
+                ${vips.length ? `<p class="adm-help">👑 VIP vigentes: ${vips.map(v => `<b>${esc(v.usuario.nombre)}</b> (${v.visitas} visitas en ${esc(v.mes)})`).join(', ')}</p>` : ''}
                 <div class="adm-table-wrap"><table class="adm-table">
-                    <thead><tr><th>Persona</th><th>Visitas</th><th>Última</th><th></th></tr></thead>
-                    <tbody>${lista.slice(0, 10).map(c => `
+                    <thead><tr><th>#</th><th>Persona</th><th>Visitas</th><th>Última</th><th></th></tr></thead>
+                    <tbody>${lista.map(c => `
                         <tr>
+                            <td>${c.puesto}</td>
                             <td>${esc(c.usuario.nombre)} <small class="adm-muted-cell">@${esc(c.usuario.username || '')}</small></td>
                             <td>${c.visitas}</td>
                             <td>${esc(new Date(c.ultima).toLocaleDateString('es-CL'))}</td>
-                            <td>${c.esClienteDelMes ? statusPill('🏅 Cliente del mes', 'gold') : statusPill(`Le faltan ${5 - c.visitas}`, 'muted')}</td>
+                            <td>${c.esClienteDelMes ? statusPill('👑 VIP', 'gold') : statusPill(`Le faltan ${5 - c.visitas}`, 'muted')}</td>
                         </tr>`).join('')}</tbody>
                 </table></div>`).join('') : emptyRow('No hay visitas registradas este mes.')}
         </section>

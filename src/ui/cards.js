@@ -1,7 +1,7 @@
 // Piezas de interfaz reutilizadas en varias pantallas
 import { esc, safeUrl, formatPrice } from '../utils/html.js';
 import { estadoHorario } from '../utils/time.js';
-import { notaActual, fotosDePlato } from '../data/metrics.js';
+import { notas30, fotosDePlato } from '../data/metrics.js';
 import { formatDistance } from '../utils/geo.js';
 import { isSponsored, distanceTo } from '../features/sponsors.js';
 import { state, isLoggedIn } from '../state.js';
@@ -41,8 +41,18 @@ export function notaLabel(nota) {
     return 'Sin reseñas aún';
 }
 
+// Comida y servicio de los últimos 30 días, para las tarjetas
+function notasTarjeta(local) {
+    const n = notas30(local.id);
+    if (!n) return { total: 0, html: '<span class="rating-breakdowns">Sin reseñas en los últimos 30 días</span>' };
+    return {
+        total: n.total,
+        html: `<span class="rating-split" title="Promedio de los últimos 30 días">🍽️ <b>${n.comida.toFixed(1)}</b> · 🤵 <b>${n.servicio.toFixed(1)}</b></span>`
+    };
+}
+
 export function localCard(local, { platos = [] } = {}) {
-    const nota = notaActual(local.id);
+    const nota30 = notasTarjeta(local);
     const estado = estadoHorario(local);
     const isFav = isLoggedIn() && (state.user.favoritos || []).includes(local.id);
     const sponsored = isSponsored(local);
@@ -60,9 +70,9 @@ export function localCard(local, { platos = [] } = {}) {
             <p class="card-meta">${esc(local.tipo)} ${sponsoredBadge(local)}</p>
             <p class="card-meta card-meta-strong">${esc(estado.detalle)} · 📍 ${esc(formatDistance(distanceTo(local)))}</p>
             <div class="card-rating">
-                ${ratingStars(nota.total)}
-                <span class="rating-score">${nota.total ? nota.total.toFixed(1) : '–'}</span>
-                <span class="rating-breakdowns">${esc(notaLabel(nota))}</span>
+                ${ratingStars(nota30.total)}
+                <span class="rating-score">${nota30.total ? nota30.total.toFixed(1) : '–'}</span>
+                ${nota30.html}
             </div>
             ${platos.length ? `<div class="card-matches">${platos.slice(0, 3).map(p => `<span class="match-pill">${esc(p.nombre)} · ${esc(formatPrice(p.precio))}</span>`).join('')}</div>` : ''}
             <div class="card-actions">

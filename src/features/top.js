@@ -44,7 +44,7 @@ export function renderTop() {
     document.getElementById('mainContent').innerHTML = `
         <div class="top-head">
             <h2 class="section-title">Top 50 de Talca</h2>
-            <p>El ranking de la comunidad · los destacados pagados no influyen</p>
+            <p>El ranking de la comunidad</p>
         </div>
         <div class="top-tabs" role="tablist">
             ${TABS.map((t, i) => `<button class="top-tab ${i === 0 ? 'is-on' : ''}" role="tab" data-action="top-tab" data-index="${i}">${t.emoji} ${esc(t.nombre)}</button>`).join('')}

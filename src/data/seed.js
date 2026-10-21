@@ -6,6 +6,7 @@ import logoRamses from '../assets/local-ramses.jpg';
 import logoCarlota from '../assets/local-carlota.jpg';
 import logoQueEmpanadas from '../assets/local-queempanadas.jpg';
 import { nombreProducto } from './categorias.js';
+import { sugerirDietas } from '../services/dietas.js';
 
 function fechaRelativa(dias) {
     const d = new Date();
@@ -67,7 +68,6 @@ const extras = {
             'Bicicletero': 'No hay bicicletero, pero se puede dejar en la terraza',
             'Baño / WC': 'No adaptado para silla de ruedas'
         },
-        vegetarianoProductos: 1, veganoProductos: 1,
         eventos: [
             { id: 'ev-1', titulo: 'Noche acústica en vivo', inicio: proximoDia(5, '21:00'), descripcion: 'Música acústica peruana mientras cenas. (Evento de ejemplo)' }
         ]
@@ -90,7 +90,6 @@ const extras = {
             'Barra': 'Mesón',
             'Pedidos para llevar': 'Con reserva'
         },
-        vegetarianoProductos: 1, veganoProductos: 1, sinGlutenProductos: 1, sinLactosaProductos: 1,
         eventos: []
     },
     3: {
@@ -118,7 +117,6 @@ const extras = {
             'Pedidos para llevar': 'Pedidos anticipados o agendados (abonando la mitad) y mix para compartir',
             'Terraza': 'Las mesas están en la terraza'
         },
-        vegetarianoProductos: 1, veganoProductos: 1, sinGlutenProductos: 1,
         // Patrocinio vigente: aparece primero en listas y búsquedas, con estrella en el mapa (ejemplo)
         patrocinio: { plan: 'Destacado mensual', precio: 29990, desde: fechaRelativa(-10), hasta: fechaRelativa(20) },
         menuExtra: [
@@ -139,7 +137,7 @@ export function buildSeedLocales() {
             ...rest,
             // Las distinciones se calculan con el ranking mensual; se registran al cerrar cada mes
             distinciones: [],
-            menu: [...local.menu, ...menuExtra].map(m => ({ ...m, likes: undefined, dietas: DIETAS_PLATOS[m.nombre] || [] })),
+            menu: [...local.menu, ...menuExtra].map(m => ({ ...m, likes: undefined, dietas: DIETAS_PLATOS[m.nombre] || sugerirDietas(m) })),
             eventos: rest.eventos || [],
             etiquetas: rest.etiquetas || [],
             caracteristicasDetalle: rest.caracteristicasDetalle || {}
@@ -154,15 +152,31 @@ const LIKES_FOTOS = {
 };
 
 const EXTRA_REVIEWS = [
-    { id: 6, usuario: { nombre: 'Juan Pérez', avatar: 'JP' }, dias: 3, localId: 3, productos: ['Completo Italiano (x2)', 'Papas Fritas Grandes'],
-      fotos: [{ item: 'Completo Italiano', url: 'https://images.unsplash.com/photo-1612392062631-94b33c7e6f6c?w=500&h=500&fit=crop', likes: 37 }],
-      notaComida: 8.7, notaServicio: 8.1, comentario: 'Completo bien armado, pan crujiente y la palta fresca. Las papas llegaron calientes.', likes: 9 },
+    { id: 6, usuario: { nombre: 'Juan Pérez', avatar: 'JP' }, dias: 3, localId: 3, productos: ['Completo Italiano (x2)', 'Empanada Queso Frita', 'Papas Fritas Grandes'],
+      fotos: [
+          { item: 'Completo Italiano', url: 'https://images.unsplash.com/photo-1612392062631-94b33c7e6f6c?w=500&h=500&fit=crop', likes: 37 },
+          { item: 'Empanada Queso Frita', url: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&h=500&fit=crop', likes: 12 },
+          { item: 'Papas Fritas Grandes', url: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&h=500&fit=crop', likes: 5 }
+      ],
+      notaComida: 8.7, notaServicio: 8.1, comentario: 'Completo bien armado, pan crujiente y la palta fresca. La empanada de queso bien rellena y las papas llegaron calientes.', likes: 9 },
     { id: 7, usuario: { nombre: 'Camila Rojas', avatar: 'CR' }, dias: 9, localId: 1, productos: ['Lomo Saltado Premium', 'Chaufa de Verduras'],
       fotos: [], notaComida: 9.1, notaServicio: 8.6, comentario: 'El lomo saltado tiene el punto justo de soya y las papas no quedan blandas. Atención rápida.', likes: 5 },
     { id: 8, usuario: { nombre: 'Diego Muñoz', avatar: 'DM' }, dias: 40, localId: 2, productos: ['Café Latte especial'],
       fotos: [{ item: 'Café Latte especial', url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&h=500&fit=crop', likes: 12 }],
       notaComida: 8.2, notaServicio: 8.9, comentario: 'Buen café para trabajar un rato, el wifi anda bien y es tranquilo en la mañana.', likes: 3 }
 ];
+
+// Ejemplo de cliente VIP: Sofía visitó Ramsés 5 veces el mes pasado, así que es VIP durante este mes
+function visitasMesPasado() {
+    const hoy = new Date().getDate();
+    const platos = [['Lomo Saltado Premium'], ['Ceviche Clásico'], ['Ají de Gallina'], ['Pisco Sour Peruano'], ['Causa Rellena de Ave']];
+    return platos.map((productos, k) => ({
+        id: 20 + k, usuario: { nombre: 'Sofía Ibáñez', avatar: 'SI' }, dias: hoy + 1 + k * 2, localId: 1, productos, fotos: [],
+        notaComida: 9 + (k % 3) * 0.2, notaServicio: 8.8 + (k % 2) * 0.3,
+        comentario: ['Volví por el lomo saltado, siempre parejo.', 'El ceviche estaba fresquísimo, como siempre.', 'Probé el ají de gallina, cremoso y con buen picor.', 'Pasé solo por un pisco sour después del trabajo.', 'La causa rellena, muy bien presentada.'][k],
+        likes: 1 + k
+    }));
+}
 
 function slug(nombre) {
     return nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -174,7 +188,7 @@ export function buildSeedReviews() {
         fecha: new Date(`${r.fecha}T13:00:00`).toISOString(),
         fotos: r.fotoComida ? [{ item: nombreProducto(r.productos[0]), url: r.fotoComida, likes: LIKES_FOTOS[nombreProducto(r.productos[0])] || 10 }] : []
     }));
-    const extra = EXTRA_REVIEWS.map(({ dias, ...r }) => ({ ...r, fecha: haceDias(dias), isDrink: false }));
+    const extra = [...EXTRA_REVIEWS, ...visitasMesPasado()].map(({ dias, ...r }) => ({ ...r, fecha: haceDias(dias), isDrink: false }));
     return [...base, ...extra].map(r => {
         const { fotoComida, likedBy, ...rest } = r;
         void fotoComida;

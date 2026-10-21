@@ -1,9 +1,11 @@
 // Niveles, misiones e insignias del comensal, calculados a partir de sus reseñas.
-// Las insignias están ocultas: se desbloquean al probar 5 platos del mismo tipo en locales distintos
-// (por ejemplo 5 completos en 5 lugares). Solo la del producto favorito elegido al inicio se ve desde el principio.
+// Las insignias son por tipo de plato (completo, pastel de choclo, ceviche, tártaro...). Un tipo tiene insignia
+// cuando al menos 5 locales lo ofrecen en su carta, y se desbloquea al probarlo en 5 locales distintos.
+// Están ocultas: solo la de la comida favorita elegida al inicio se ve desde el principio.
 import { state, isLoggedIn } from '../state.js';
 import { db } from '../data/store.js';
-import { CATEGORIAS, categoriasDePlato, nombreProducto, getCategoria } from '../data/categorias.js';
+import { nombreProducto } from '../data/categorias.js';
+import { TIPOS_PLATO, LOCALES_CON_TIPO, tipoDePlato, getTipo } from '../data/tipos-plato.js';
 import { esc } from '../utils/html.js';
 import { registerActions } from '../ui/actions.js';
 
@@ -45,33 +47,46 @@ export function visitedLocalesCount() {
     return new Set(userReviews().map(r => r.localId)).size;
 }
 
-/** Locales distintos donde el usuario probó cada tipo de comida */
-function localesPorCategoria() {
+/** Locales distintos donde el usuario probó cada tipo de plato */
+function localesPorTipo() {
     const mapa = {};
     userReviews().forEach(r => (r.productos || []).forEach(p => {
-        categoriasDePlato(nombreProducto(p)).forEach(cat => {
-            (mapa[cat] = mapa[cat] || new Set()).add(r.localId);
-        });
+        const tipo = tipoDePlato(nombreProducto(p));
+        if (tipo) (mapa[tipo] = mapa[tipo] || new Set()).add(r.localId);
+    }));
+    return mapa;
+}
+
+/** Cuántos locales ofrecen cada tipo de plato en su carta */
+export function localesQueOfrecen() {
+    const mapa = {};
+    db.locales.forEach(l => (l.menu || []).forEach(m => {
+        const tipo = tipoDePlato(m.nombre);
+        if (tipo) (mapa[tipo] = mapa[tipo] || new Set()).add(l.id);
     }));
     return mapa;
 }
 
 /**
- * Insignias: visibles = desbloqueadas + la del producto favorito; el resto quedan ocultas.
+ * Insignias: existen para los tipos de plato que ofrecen 5 o más locales (más la comida favorita).
+ * Visibles = desbloqueadas + la favorita; el resto quedan ocultas.
  */
 export function computeLogros() {
-    const mapa = localesPorCategoria();
-    const favorita = state.user?.productoFavorito;
-    return CATEGORIAS.map(c => {
-        const count = (mapa[c.id] || new Set()).size;
-        const unlocked = count >= LOCALES_PARA_INSIGNIA;
-        return {
-            id: c.id, emoji: c.emoji, titulo: c.insignia, categoria: c.nombre,
-            descripcion: `Prueba ${c.nombre.toLowerCase()} en ${LOCALES_PARA_INSIGNIA} locales distintos`,
-            count, required: LOCALES_PARA_INSIGNIA, unlocked,
-            visible: unlocked || c.id === favorita
-        };
-    });
+    const probados = localesPorTipo();
+    const ofrecen = localesQueOfrecen();
+    const favorita = getTipo(state.user?.productoFavorito)?.id;
+    return TIPOS_PLATO
+        .filter(t => (ofrecen[t.id]?.size || 0) >= LOCALES_CON_TIPO || t.id === favorita)
+        .map(t => {
+            const count = (probados[t.id] || new Set()).size;
+            const unlocked = count >= LOCALES_PARA_INSIGNIA;
+            return {
+                id: t.id, emoji: t.emoji, titulo: t.insignia, categoria: t.nombre,
+                descripcion: `Prueba ${t.nombre.toLowerCase()} en ${LOCALES_PARA_INSIGNIA} locales distintos`,
+                count, required: LOCALES_PARA_INSIGNIA, unlocked,
+                visible: unlocked || t.id === favorita
+            };
+        });
 }
 
 /** Misiones con su progreso */
@@ -81,7 +96,7 @@ export function computeMisiones() {
     const fotos = reviews.flatMap(r => r.fotos || []);
     const maxLikesFoto = Math.max(0, ...fotos.map(f => f.likes || 0));
     const enPromo = reviews.filter(r => r.enPromocion).length;
-    const categorias = Object.keys(localesPorCategoria()).length;
+    const categorias = Object.keys(localesPorTipo()).length;
     const temprano = reviews.filter(r => new Date(r.fecha).getHours() < 11).length;
     const ahora = new Date();
     const visitasMes = {};
@@ -96,7 +111,7 @@ export function computeMisiones() {
         { icono: '🏷️', titulo: 'Cazador de promociones', descripcion: 'Visita un local mientras tiene una promoción o está destacado.', progreso: enPromo, total: 1, recompensa: 'Insignia cazador' },
         { icono: '📸', titulo: 'Fotógrafo gastronómico', descripcion: 'Sube 5 fotos de platos en tus reseñas.', progreso: fotos.length, total: 5, recompensa: 'Marco dorado en tus fotos' },
         { icono: '⭐', titulo: 'Foto estrella', descripcion: 'Consigue que una de tus fotos llegue a 10 "me gusta".', progreso: maxLikesFoto, total: 10, recompensa: 'Tu foto puede llegar a la carta' },
-        { icono: '🌎', titulo: 'Paladar curioso', descripcion: 'Prueba 5 tipos de comida distintos.', progreso: categorias, total: 5, recompensa: 'Título "Paladar curioso"' },
+        { icono: '🌎', titulo: 'Paladar curioso', descripcion: 'Prueba 5 tipos de plato distintos (completo, ceviche, pastel de choclo...).', progreso: categorias, total: 5, recompensa: 'Título "Paladar curioso"' },
         { icono: '🔁', titulo: 'Cliente fiel', descripcion: 'Visita el mismo local 3 veces en un mes.', progreso: maxVisitasMes, total: 3, recompensa: 'Camino a cliente del mes' },
         { icono: '🌅', titulo: 'Madrugador', descripcion: 'Reseña un desayuno antes de las 11:00.', progreso: temprano, total: 1, recompensa: 'Insignia madrugador' },
         { icono: '🎬', titulo: 'Videasta', descripcion: 'Publica un video evaluando un local.', progreso: videos, total: 1, recompensa: 'Aparecer en el feed de videos' },
@@ -133,8 +148,8 @@ function showModal(icon, title, big, name, desc) {
 }
 
 export function favoritoLabel() {
-    const c = getCategoria(state.user?.productoFavorito);
-    return c ? `${c.emoji} ${c.nombre}` : null;
+    const t = getTipo(state.user?.productoFavorito);
+    return t ? `${t.emoji} ${t.nombre}` : null;
 }
 
 registerActions({

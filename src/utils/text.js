@@ -81,3 +81,13 @@ export function matchWord(query, word) {
     if (qp.length >= 5 && wp.length > qp.length && levenshtein(qp, wp.slice(0, qp.length)) <= 1) return 0.5;
     return 0;
 }
+
+// "71 2223612" -> "+56 71 222 3612", "569 72917701" -> "+56 9 7291 7701"
+export function formatTelefono(texto) {
+    let d = String(texto).replace(/[^0-9]/g, '');
+    if (d.length === 9) d = `56${d}`;
+    if (d.length !== 11 || !d.startsWith('56')) return String(texto).trim();
+    return d[2] === '9'
+        ? `+56 9 ${d.slice(3, 7)} ${d.slice(7)}`
+        : `+56 ${d.slice(2, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+}

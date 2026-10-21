@@ -112,7 +112,12 @@ Lo hace el servidor, no la app, así que nadie puede saltarse el filtro. Para ac
    supabase link --project-ref TU_REF_DEL_PROYECTO
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
    supabase functions deploy verificar-foto
+   supabase functions deploy analizar-carta
    ```
+
+La función `supabase/functions/analizar-carta` la usa solo el administrador en **Cartas → 🤖 Detectar opciones dietéticas**:
+la IA lee los platos y sugiere cuáles son vegetarianos, veganos, sin gluten o sin lactosa. Las sugerencias se revisan antes
+de guardar (con "sin gluten" la IA es conservadora, por los celíacos). Sin el servidor conectado, el panel usa reglas por ingredientes.
 
 La clave de Anthropic queda guardada **solo en Supabase**. Nunca va dentro de la app ni en GitHub.
 

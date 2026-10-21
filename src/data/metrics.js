@@ -48,16 +48,18 @@ export function fotosDePlato(localId, itemNombre) {
     const key = normalize(itemNombre);
     return reviewsPublicadasDe(localId).flatMap(r => (r.fotos || [])
         .filter(f => normalize(f.item) === key)
-        .map(f => ({ ...f, reviewId: r.id, autor: r.usuario })));
+        .map(f => ({ ...f, reviewId: r.id, autor: r.usuario, fecha: f.fecha || r.fecha })));
 }
 
 /**
  * Carta del local ordenada por popularidad: cada plato muestra la foto de la comunidad con más "me gusta",
- * y esos likes definen su posición. Los platos sin fotos van al final.
+ * y esos likes definen su posición. Si dos fotos empatan, se queda la más antigua. Los platos sin fotos van al final.
  */
 export function cartaLocal(local) {
     return (local.menu || []).filter(m => m.nombre).map(item => {
-        const fotos = fotosDePlato(local.id, item.nombre).sort((a, b) => (b.likes || 0) - (a.likes || 0));
+        // Más likes primero; si empatan, sigue la foto más antigua
+        const fotos = fotosDePlato(local.id, item.nombre)
+            .sort((a, b) => ((b.likes || 0) - (a.likes || 0)) || (new Date(a.fecha) - new Date(b.fecha)));
         const top = fotos[0] || null;
         return { item, foto: top, likes: top ? top.likes || 0 : 0, totalFotos: fotos.length };
     }).sort((a, b) => (b.likes - a.likes) || ((b.foto ? 1 : 0) - (a.foto ? 1 : 0)));
@@ -83,9 +85,8 @@ export function estrellasPorCantidad(n) {
 }
 
 export function dietaLocal(local, key) {
-    const productos = (local.menu || []).filter(m => (m.dietas || []).includes(key)).length;
-    const declarados = Number(local[`${key}Productos`]) || 0; // cantidad informada en la encuesta
-    const cantidad = Math.max(productos, declarados);
+    // Se cuenta desde la carta: cada plato marcado (por la IA al subir la carta, o a mano en el panel)
+    const cantidad = (local.menu || []).filter(m => (m.dietas || []).includes(key)).length;
     return { cantidad, estrellas: estrellasPorCantidad(cantidad) };
 }
 
@@ -166,4 +167,29 @@ export function clientesFrecuentes(localId, date = new Date(), minimo = 5) {
         conteo.set(r.usuario.id, c);
     });
     return [...conteo.values()].sort((a, b) => b.visitas - a.visitas).map(c => ({ ...c, esClienteDelMes: c.visitas >= minimo }));
+}
+
+/** Top 50 clientes de un local en un mes (más visitas primero; si empatan, quien vino más recientemente) */
+export function topClientes(localId, date = new Date(), limite = 50) {
+    return clientesFrecuentes(localId, date)
+        .sort((a, b) => (b.visitas - a.visitas) || (new Date(b.ultima) - new Date(a.ultima)))
+        .slice(0, limite)
+        .map((c, i) => ({ ...c, puesto: i + 1 }));
+}
+
+const mesAnterior = date => new Date(date.getFullYear(), date.getMonth() - 1, 15);
+
+/**
+ * Clientes VIP vigentes de un local: quienes fueron cliente del mes (5 visitas o más) el mes pasado,
+ * reconocidos durante todo este mes, más quienes ya llegaron a 5 visitas en el mes actual.
+ */
+export function vipsDeLocal(localId, date = new Date()) {
+    const pasado = topClientes(localId, mesAnterior(date)).filter(c => c.esClienteDelMes).map(c => ({ ...c, mes: MESES[mesAnterior(date).getMonth()] }));
+    const actual = topClientes(localId, date).filter(c => c.esClienteDelMes && !pasado.some(p => p.usuario.id === c.usuario.id)).map(c => ({ ...c, mes: MESES[date.getMonth()] }));
+    return [...pasado, ...actual];
+}
+
+/** Locales donde una persona es cliente VIP ahora */
+export function vipDeUsuario(userId, date = new Date()) {
+    return db.locales.filter(l => vipsDeLocal(l.id, date).some(c => c.usuario.id === userId));
 }

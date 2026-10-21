@@ -60,7 +60,8 @@ function go(view, localId = null) {
 setReportesHandlers(render, go);
 
 registerActions({
-    'adm-go': el => go(el.dataset.view)
+    'adm-go': el => go(el.dataset.view),
+    'adm-go-cartas': el => go('cartas', Number(el.dataset.id))
 });
 
 // Permite volver con el botón atrás o abrir una sección por link (admin.html#encuesta)

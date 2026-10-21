@@ -4,6 +4,7 @@ import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
 import { toast, confirmDialog, emptyRow } from '../ui.js';
 import { DIETAS } from '../../data/metrics.js';
+import { analizarDietasCarta, sugerirDietas } from '../../services/dietas.js';
 
 let localId = null;
 let importPreview = null;
@@ -68,8 +69,11 @@ export function renderCartas() {
                     </tbody>
                 </table>
             </div>
+            <p class="adm-help">🤖 La IA revisa la carta y marca qué platos son vegetarianos 🥬, veganos 🌱, sin gluten 🌾 o sin lactosa 🥛.
+            Son sugerencias: revísalas (sobre todo sin gluten, por los celíacos) y presiona "Guardar carta".</p>
             <div class="adm-form-actions">
                 <button class="adm-btn" data-action="adm-dish-add">＋ Agregar plato</button>
+                <button class="adm-btn" data-action="adm-diet-detect">🤖 Detectar opciones dietéticas</button>
                 <button class="adm-btn primary" data-action="adm-carta-save">Guardar carta</button>
             </div>
         </section>
@@ -151,10 +155,31 @@ registerActions({
         rerender();
         document.getElementById('admImportText').value = text;
     },
+    'adm-diet-detect': async el => {
+        const local = getLocal(localId);
+        const menu = readTable(local);
+        el.disabled = true;
+        el.textContent = '🤖 Analizando la carta…';
+        const resultado = await analizarDietasCarta(menu);
+        let cambios = 0;
+        menu.forEach((m, i) => {
+            const fila = document.getElementById(`m_nombre_${i}`)?.closest('tr');
+            DIETAS.forEach(d => {
+                const check = document.getElementById(`m_d_${d.key}_${i}`);
+                const sugerido = resultado[i].dietas.includes(d.key);
+                if (check && check.checked !== sugerido) { check.checked = sugerido; cambios++; fila?.classList.add('is-suggested'); }
+            });
+            if (resultado[i].dudoso) fila?.classList.add('is-doubt');
+        });
+        el.disabled = false;
+        el.textContent = '🤖 Detectar opciones dietéticas';
+        toast(cambios ? `${cambios} marca(s) sugerida(s). Revisa las filas destacadas y guarda la carta.` : 'La carta ya estaba bien marcada.');
+    },
     'adm-import-cancel': () => { importPreview = null; rerender(); },
     'adm-import-confirm': () => {
         const local = getLocal(localId);
-        local.menu = [...readTable(local), ...importPreview.map(p => ({ ...p, imagen: '', likes: 0, isDrink: /bebida|trago|cerveza|vino|jugo|cafe|café/i.test(p.categoria) }))];
+        // Los platos nuevos llegan con las opciones dietéticas detectadas
+        local.menu = [...readTable(local), ...importPreview.map(p => ({ ...p, imagen: '', likes: 0, dietas: sugerirDietas(p), isDrink: /bebida|trago|cerveza|vino|jugo|cafe|café/i.test(p.categoria) }))];
         persist();
         toast(`${importPreview.length} platos agregados`);
         importPreview = null;
