@@ -11,6 +11,7 @@ import { requireAccount } from './auth.js';
 import { likeButton, toggleLike, userLiked } from './review-card.js';
 import { saveVideoBlob, getVideoUrl, inspectVideo, MAX_VIDEO_MB, MAX_VIDEO_SEGUNDOS } from '../services/media.js';
 import { moderateVideoFrames } from '../services/ai.js';
+import { nuevoId } from '../utils/id.js';
 import { track } from '../services/analytics.js';
 
 /** Reconoce un link de TikTok o Instagram y devuelve la URL del reproductor oficial. */
@@ -49,9 +50,9 @@ export function videoTeaser(video) {
 function videoSlide(video) {
     const local = getLocal(video.localId);
     const parsed = video.url ? parseVideoUrl(video.url) : null;
-    const tipo = video.archivoId ? 'archivo' : parsed ? 'embed' : 'demo';
+    const tipo = video.archivoUrl || video.archivoId ? 'archivo' : parsed ? 'embed' : 'demo';
     return `
-    <section class="video-slide" data-video-id="${esc(video.id)}" data-tipo="${tipo}" data-embed="${parsed ? esc(parsed.embed) : ''}" data-archivo="${esc(video.archivoId || '')}">
+    <section class="video-slide" data-video-id="${esc(video.id)}" data-tipo="${tipo}" data-embed="${parsed ? esc(parsed.embed) : ''}" data-archivo="${esc(video.archivoId || '')}" data-archivo-url="${esc(video.archivoUrl || '')}">
         <div class="video-frame ${esc(video.plataforma || 'archivo')}">
             ${tipo === 'demo' ? `
                 <div class="video-demo">
@@ -83,7 +84,8 @@ async function loadSlide(slide) {
     if (slide.dataset.tipo === 'embed') {
         frame.innerHTML = `<iframe src="${slide.dataset.embed}" title="Video" loading="lazy" allow="encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
     } else if (slide.dataset.tipo === 'archivo') {
-        const url = await getVideoUrl(slide.dataset.archivo).catch(() => null);
+        // En línea el video viene del servidor; en la demo, del dispositivo donde se subió
+        const url = slide.dataset.archivoUrl || await getVideoUrl(slide.dataset.archivo).catch(() => null);
         frame.innerHTML = url
             ? `<video src="${url}" controls playsinline loop preload="metadata"></video>`
             : '<div class="video-demo"><p>Este video solo está disponible en el dispositivo donde se subió (modo demo).</p></div>';
@@ -195,7 +197,7 @@ registerActions({
         if (!document.getElementById('videoOwn').checked) return fail('Debes confirmar que el video es tuyo o que tienes permiso.');
         if (parsed && db.videos.some(v => v.url === parsed.url)) return fail('Ese video ya fue compartido.');
 
-        const id = `vid-${Date.now()}`;
+        const id = nuevoId();
         let revision = { estado: 'revision', motivo: 'Pendiente de revisión' };
         if (upload.file) {
             try {

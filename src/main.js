@@ -13,6 +13,9 @@ import { renderResults } from './features/inicio.js';
 import { track } from './services/analytics.js';
 import './features/perfil-publico.js';
 import { setupPwa } from './services/pwa.js';
+import { remoto, supabase, mensajeError } from './services/supabase.js';
+import { cargarTodo, cargarUsuario, configurarAvisos, escucharCambios } from './data/remoto.js';
+import { showToast } from './ui/feedback.js';
 
 function requestLocation() {
     if (!navigator.geolocation) return;
@@ -57,6 +60,7 @@ setReviewPublishedHandler(() => {
 });
 
 initAuth({ onEnter: () => enterApp() });
+configurarAvisos(msg => showToast(`No se pudo guardar: ${msg}`, 4500));
 setupPwa();
 
 // Escape cierra la ficha del local (útil en computador)
@@ -67,5 +71,40 @@ document.addEventListener('keydown', e => {
 });
 track('app_abierta');
 
-// Sesión guardada: entra directo sin pedir login otra vez
-if (state.user) enterApp({ withSplash: false });
+if (remoto) {
+    iniciarEnLinea();
+} else if (state.user) {
+    // Sesión guardada: entra directo sin pedir login otra vez
+    enterApp({ withSplash: false });
+}
+
+// En línea: se cargan los locales y reseñas desde Supabase; si ya había sesión, entra directo
+async function iniciarEnLinea() {
+    const aviso = document.createElement('div');
+    aviso.className = 'app-cargando';
+    aviso.textContent = 'Cargando locales…';
+    document.body.appendChild(aviso);
+    const invitado = document.querySelector('[data-action="auth-guest"]');
+    invitado.disabled = true;
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            await cargarUsuario(session);
+            await cargarTodo();
+            enterApp({ withSplash: false });
+        } else {
+            await cargarTodo();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast(`No se pudieron cargar los datos: ${mensajeError(err)}`, 6000);
+    } finally {
+        aviso.remove();
+        invitado.disabled = false;
+    }
+    // Reseñas, fotos y videos nuevos de otras personas llegan solos
+    escucharCambios(() => {
+        if (state.currentView === 'inicio') renderResults();
+        refreshLocalDetail();
+    });
+}

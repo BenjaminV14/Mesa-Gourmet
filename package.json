@@ -13,6 +13,7 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.45.4",
     "leaflet": "^1.9.4",
     "read-excel-file": "9.3.10"
   }

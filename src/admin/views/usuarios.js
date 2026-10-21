@@ -4,6 +4,7 @@ import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
 import { timeAgo } from '../../utils/time.js';
 import { toast, confirmDialog, emptyRow } from '../ui.js';
+import { remoto } from '../../services/supabase.js';
 
 let rerender = () => {};
 export function setUsuariosRerender(fn) { rerender = fn; }
@@ -42,8 +43,8 @@ export function renderUsuarios() {
             <p class="adm-help">Descarga una copia de todos los datos (locales, cartas, reseñas, videos, reportes) o restaura una copia anterior.</p>
             <div class="adm-row-actions">
                 <button class="adm-btn primary" data-action="adm-export">Descargar respaldo</button>
-                <label class="adm-btn">Restaurar respaldo<input type="file" accept="application/json" data-change="adm-import" hidden></label>
-                <button class="adm-btn danger" data-action="adm-reset">Volver a los datos de ejemplo</button>
+                ${remoto ? '' : `<label class="adm-btn">Restaurar respaldo<input type="file" accept="application/json" data-change="adm-import" hidden></label>
+                <button class="adm-btn danger" data-action="adm-reset">Volver a los datos de ejemplo</button>`}
             </div>
         </section>
     `;

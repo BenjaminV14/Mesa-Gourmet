@@ -10,6 +10,7 @@ import { requireAccount } from './auth.js';
 import { userReviews, checkLevelUp, computeLogros } from './gamification.js';
 import { isSponsored } from './sponsors.js';
 import { compressImage, verifyDishPhoto } from '../services/ai.js';
+import { nuevoId } from '../utils/id.js';
 import { track } from '../services/analytics.js';
 
 export const PRECIOS_PERSONA = ['Menos de $5.000', '$5.000 – $10.000', '$10.000 – $15.000', '$15.000 – $25.000', 'Más de $25.000'];
@@ -132,7 +133,7 @@ async function submitReview(event) {
     submit.textContent = 'Revisando fotos…';
     showFormError('');
 
-    const reviewId = `r-${Date.now()}`;
+    const reviewId = nuevoId();
     const fotos = [];
     let rechazada = false;
     const pendientes = [];
@@ -141,7 +142,7 @@ async function submitReview(event) {
             const v = await verifyDishPhoto(url, s.item.nombre);
             if (v.estado === 'rechazada') rechazada = true;
             if (v.estado !== 'aprobada') pendientes.push(v.motivo);
-            fotos.push({ id: `f-${reviewId}-${s.idx}-${i}`, item: s.item.nombre, url, likes: 0, likedBy: [], verificada: v.estado === 'aprobada' });
+            fotos.push({ id: nuevoId(), item: s.item.nombre, url, likes: 0, likedBy: [], verificada: v.estado === 'aprobada' });
         }
     }
 

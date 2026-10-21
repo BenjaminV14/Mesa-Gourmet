@@ -1,8 +1,11 @@
 // Capa de datos de la app. Hoy guarda todo en el navegador (localStorage);
 // cuando se conecte Supabase, estas mismas funciones leerán y escribirán en la base de datos.
+import { nuevoId } from '../utils/id.js';
 import { buildSeedLocales, buildSeedReviews, buildSeedVideos } from './seed.js';
+import { remoto } from '../services/supabase.js';
 
-const STORAGE_KEY = 'mg:v7:data';
+// Con Supabase los datos vienen del servidor; lo guardado aquí es solo una copia para abrir más rápido
+const STORAGE_KEY = remoto ? 'mg:remoto:v1' : 'mg:v7:data';
 const SESSION_KEY = 'mg:v2:session';
 const HISTORY_KEY = 'mg:v2:busquedas';
 
@@ -26,9 +29,10 @@ function writeJson(key, value) {
 
 function freshData() {
     return {
-        locales: buildSeedLocales(),
-        reviews: buildSeedReviews(),
-        videos: buildSeedVideos(),
+        // En línea no hay datos de ejemplo: todo llega desde Supabase
+        locales: remoto ? [] : buildSeedLocales(),
+        reviews: remoto ? [] : buildSeedReviews(),
+        videos: remoto ? [] : buildSeedVideos(),
         reports: [],
         moderation: [],
         // Banco de preguntas de la encuesta a los dueños (se completa en el panel)
@@ -40,13 +44,21 @@ function freshData() {
 
 export const db = readJson(STORAGE_KEY) || freshData();
 
+let sincronizar = null;
+
+/** Lo usa data/remoto.js para enviar a Supabase cada cambio guardado */
+export function registrarSincronizacion(fns) {
+    sincronizar = fns;
+}
+
 export function persist() {
     writeJson(STORAGE_KEY, db);
+    sincronizar?.datos();
 }
 
 // Si los datos cambian en otra pestaña (por ejemplo, el panel aprueba una reseña), se avisa a la app.
 // Con Supabase esto se reemplaza por las suscripciones en tiempo real.
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !remoto) {
     window.addEventListener('storage', e => {
         if (e.key !== STORAGE_KEY || !e.newValue) return;
         try {
@@ -59,6 +71,7 @@ if (typeof window !== 'undefined') {
 if (!readJson(STORAGE_KEY)) persist();
 
 export function resetDemoData() {
+    if (remoto) return; // en línea nunca se borran los datos reales
     Object.assign(db, freshData());
     persist();
 }
@@ -66,10 +79,15 @@ export function resetDemoData() {
 // =================== SESIÓN ===================
 
 export function loadSession() {
-    return readJson(SESSION_KEY);
+    // En línea la sesión la maneja Supabase (se recupera al abrir la app)
+    return remoto ? null : readJson(SESSION_KEY);
 }
 
 export function saveSession(user) {
+    if (remoto) {
+        if (user) sincronizar?.usuario(user);
+        return;
+    }
     writeJson(SESSION_KEY, user);
 }
 
@@ -112,6 +130,6 @@ export function approvedVideos() {
 export function recomputeLocalScores() {}
 
 export function addReport(report) {
-    db.reports.unshift({ id: `rep-${Date.now()}`, fecha: new Date().toISOString(), estado: 'abierto', ...report });
+    db.reports.unshift({ id: nuevoId(), fecha: new Date().toISOString(), estado: 'abierto', ...report });
     persist();
 }

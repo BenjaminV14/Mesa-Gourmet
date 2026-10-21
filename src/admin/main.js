@@ -14,6 +14,8 @@ import { renderEncuesta, setEncuestaRerender } from './views/encuesta.js';
 import { renderMapaAdmin } from './views/mapa.js';
 import { renderMetricas, setMetricasRerender } from './views/metricas.js';
 import { nuevosVip } from './vip.js';
+import { remoto } from '../services/supabase.js';
+import { iniciarAdminEnLinea } from './acceso.js';
 
 const VIEWS = {
     resumen: { label: 'Resumen', icon: '📊', render: renderResumen },
@@ -79,4 +81,6 @@ window.addEventListener('mg:data-changed', () => {
     else render();
 });
 
-render();
+// En línea hay que ingresar con la cuenta de administrador; en la demo se entra directo
+if (remoto) iniciarAdminEnLinea(render);
+else render();

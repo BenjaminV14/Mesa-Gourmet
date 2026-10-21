@@ -31,6 +31,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # Datos públicos del proyecto de Supabase (la clave "publishable" está hecha para ir dentro de la app;
+          # lo que protege los datos son las reglas de seguridad de la base de datos)
+          VITE_SUPABASE_URL: https://gaguteunateuwebyeaax.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_hogqKOydCFyQLtNRb_oB2A_EobgfVC_
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

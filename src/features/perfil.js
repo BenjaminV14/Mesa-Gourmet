@@ -5,6 +5,7 @@ import { db, persist, saveSession, getLocal } from '../data/store.js';
 import { TIPOS_PLATO, getTipo, buscarTipos } from '../data/tipos-plato.js';
 import { vipDeUsuario } from '../data/metrics.js';
 import { compressImage } from '../services/ai.js';
+import { remoto, supabase } from '../services/supabase.js';
 import { cropperHtml, abrirRecorte, fotoRecortada, cerrarRecorte } from '../ui/avatar-cropper.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
@@ -323,8 +324,23 @@ registerActions({
         body: '<p class="sheet-text">Se borrarán tu perfil, tus reseñas, tus fotos, tus videos y tus favoritos. Esta acción no se puede deshacer.</p>',
         actions: [{ label: 'Sí, eliminar mi cuenta', action: 'confirm-delete', variant: 'danger' }, { label: 'Cancelar', action: 'close-sheet', variant: 'ghost' }]
     }),
-    'confirm-delete': () => {
+    'confirm-delete': async () => {
         const id = state.user.id;
+        if (remoto) {
+            // Se borra todo lo publicado por la persona y queda la solicitud para borrar la cuenta (Ley 21.719).
+            // El administrador elimina el acceso en Supabase > Authentication > Users dentro de 30 días.
+            try {
+                await supabase.from('reportes').insert({ usuario_id: id, tipo: 'otro', estado: 'abierto', detalle: `Solicitud de eliminación de cuenta: ${state.user.email}` });
+                for (const tabla of ['resenas', 'videos', 'favoritos', 'quiero_ir', 'guardados']) await supabase.from(tabla).delete().eq('usuario_id', id);
+                await supabase.from('seguidores').delete().eq('seguidor_id', id);
+            } catch (err) {
+                return showToast('No se pudo completar. Inténtalo de nuevo o escríbenos.');
+            }
+            db.reviews = db.reviews.filter(r => r.usuario.id !== id);
+            closeSheet('deleteAccount');
+            showToast('Borramos tus reseñas, fotos y videos. Tu cuenta se elimina por completo en los próximos días.', 5000);
+            return logout();
+        }
         db.reviews = db.reviews.filter(r => r.usuario.id !== id);
         db.videos = db.videos.filter(v => v.usuarioId !== id);
         [...db.reviews, ...db.videos, ...db.reviews.flatMap(r => r.fotos || [])].forEach(item => {

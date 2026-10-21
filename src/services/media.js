@@ -27,6 +27,16 @@ export async function saveVideoBlob(id, blob) {
 
 const urlCache = new Map();
 
+/** El archivo del video guardado en este dispositivo (para subirlo al servidor) */
+export async function getVideoBlob(id) {
+    const idb = await openDb();
+    return new Promise((resolve, reject) => {
+        const req = idb.transaction(STORE).objectStore(STORE).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
 export async function getVideoUrl(id) {
     if (urlCache.has(id)) return urlCache.get(id);
     const idb = await openDb();

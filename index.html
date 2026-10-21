@@ -46,11 +46,13 @@
                         <label for="authPassword">Contraseña</label>
                         <div class="input-wrapper"><input type="password" id="authPassword" autocomplete="current-password" minlength="8" placeholder="Mínimo 8 caracteres" required></div>
                     </div>
+                    <button type="button" class="link-btn auth-forgot login-only" data-action="auth-forgot">¿Olvidaste tu contraseña?</button>
                     <label class="check-row register-only" hidden>
                         <input type="checkbox" id="authTerms">
                         <span>Acepto los <a href="#" data-action="show-terms">términos</a> y la <a href="#" data-action="show-privacy">política de privacidad</a></span>
                     </label>
                     <p class="form-error" id="authError" role="alert" hidden></p>
+                    <p class="form-info" id="authInfo" role="status" hidden></p>
                     <button type="submit" class="btn-submit" id="authSubmit">Ingresar</button>
 
                     <div class="divider"><span>o</span></div>
