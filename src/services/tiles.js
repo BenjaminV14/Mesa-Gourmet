@@ -1,19 +1,23 @@
 // Capa de calles del mapa.
-// Prueba los proveedores en orden (CARTO, OpenStreetMap y OSM Francia; ninguno pide clave). Si ninguno carga, por ejemplo sin internet
+// Prueba los proveedores en orden (OpenStreetMap y OSM Francia, que no piden clave; CARTO se quitó porque
+// desde 2026 pide clave y muestra "API KEY REQUIRED" sobre el mapa). Si ninguno carga, por ejemplo sin internet
 // o dentro de un visor que bloquea imágenes externas, muestra un mapa simplificado que viene dentro de la app
 // (países, regiones y comunas del Maule) para que los locales se vean igual.
-// Para el lanzamiento con mucho tráfico conviene una cuenta propia (MapTiler o Stadia, con plan gratis),
-// agregándola primera en PROVEEDORES. Ver docs/HOSTING.md.
+// Para el lanzamiento con mucho tráfico conviene una clave propia de MapTiler (plan gratis): se pone en
+// VITE_MAPTILER_KEY y pasa a ser el primer proveedor. Ver docs/HOSTING.md.
 import L from 'leaflet';
 
 export const TALCA = [-35.4264, -71.6554];
 
+const MAPTILER_KEY = import.meta.env?.VITE_MAPTILER_KEY;
+
 const PROVEEDORES = [
-    {
-        nombre: 'CARTO',
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        opciones: { subdomains: 'abcd', attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' }
-    },
+    // Con clave propia de MapTiler (plan gratis) se usa primero; sin clave se salta
+    ...(MAPTILER_KEY ? [{
+        nombre: 'MapTiler',
+        url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`,
+        opciones: { attribution: '© <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }
+    }] : []),
     {
         nombre: 'OpenStreetMap',
         url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
