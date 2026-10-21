@@ -1,5 +1,5 @@
 // Capa de calles del mapa.
-// Prueba los proveedores en orden (CARTO y luego OpenStreetMap; ninguno pide clave). Si ninguno carga, por ejemplo sin internet
+// Prueba los proveedores en orden (CARTO, OpenStreetMap y OSM Francia; ninguno pide clave). Si ninguno carga, por ejemplo sin internet
 // o dentro de un visor que bloquea imágenes externas, muestra un mapa simplificado que viene dentro de la app
 // (países, regiones y comunas del Maule) para que los locales se vean igual.
 // Para el lanzamiento con mucho tráfico conviene una cuenta propia (MapTiler o Stadia, con plan gratis),
@@ -10,12 +10,19 @@ export const TALCA = [-35.4264, -71.6554];
 
 const PROVEEDORES = [
     {
+        nombre: 'CARTO',
         url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
         opciones: { subdomains: 'abcd', attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' }
     },
     {
+        nombre: 'OpenStreetMap',
         url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         opciones: { maxNativeZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }
+    },
+    {
+        nombre: 'OSM Francia',
+        url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+        opciones: { subdomains: 'abc', maxNativeZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · OSM France' }
     }
 ];
 
@@ -30,11 +37,18 @@ export function addBaseLayer(map, { avisoSinConexion } = {}) {
     let cargadas = 0;
     let errores = 0;
     let temporizador = null;
+    const motivos = [];   // qué falló en cada proveedor, para mostrarlo en el aviso
 
     const sinConexion = () => {
         capa?.remove();
         capa = null;
-        import('./mapa-sin-conexion.js').then(m => m.agregarMapaSinConexion(map, avisoSinConexion));
+        console.warn('Mapa de calles no disponible:', motivos.join(' · '));
+        import('./mapa-sin-conexion.js').then(m => m.agregarMapaSinConexion(map, avisoSinConexion, motivos, () => {
+            // "Reintentar": vuelve a probar desde el primer proveedor
+            indice = 0;
+            motivos.length = 0;
+            usar();
+        }));
     };
     const siguiente = () => {
         clearTimeout(temporizador);
@@ -56,10 +70,18 @@ export function addBaseLayer(map, { avisoSinConexion } = {}) {
         });
         capa.on('tileerror', () => {
             errores++;
-            if (!cargadas && errores >= ERRORES_PARA_CAMBIAR) siguiente();
+            if (!cargadas && errores === ERRORES_PARA_CAMBIAR) {
+                motivos.push(`${p.nombre}: no respondió (${errores} errores)`);
+                siguiente();
+            }
         });
         // Algunos bloqueos no avisan con error: si no llega ninguna imagen a tiempo, se prueba el siguiente
-        temporizador = setTimeout(() => { if (!cargadas && map._loaded) siguiente(); }, ESPERA_MAXIMA_MS);
+        temporizador = setTimeout(() => {
+            if (!cargadas && map._loaded) {
+                motivos.push(`${p.nombre}: sin respuesta en ${ESPERA_MAXIMA_MS / 1000} s`);
+                siguiente();
+            }
+        }, ESPERA_MAXIMA_MS);
     }
     map.on('unload', () => clearTimeout(temporizador));
     usar();

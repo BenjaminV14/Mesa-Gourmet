@@ -723,3 +723,5 @@ button.profile-avatar-large img { border-radius: 50%; }
 .crop-controls { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 280px; }
 .crop-controls input { flex: 1; accent-color: var(--mesa-gold); }
 .crop-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--mesa-gold); background: #1e293b; color: var(--mesa-gold); font-size: 1.3rem; font-weight: 800; cursor: pointer; }
+.mapa-aviso small { display: block; margin-top: 3px; color: #cbd5e1; font-size: 10px; }
+.mapa-reintentar { margin-top: 6px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--mesa-gold); background: transparent; color: var(--mesa-gold); font: 700 11px 'Outfit', system-ui, sans-serif; cursor: pointer; }

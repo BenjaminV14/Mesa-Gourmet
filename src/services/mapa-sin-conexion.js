@@ -18,18 +18,19 @@ function capa(features, estilo, renderer) {
     return L.layerGroup(features.map(f => L.polygon(anillos(f.p), { ...estilo(f), renderer, interactive: false })));
 }
 
-export function agregarMapaSinConexion(map, mensaje = 'Mapa simplificado: no se pudo cargar el mapa de calles. Los locales se muestran igual.') {
+export function agregarMapaSinConexion(map, mensaje = 'Mapa simplificado: no se pudo cargar el mapa de calles. Los locales se muestran igual.', motivos = [], reintentar = null) {
     if (!map || !map._mapPane || map._sinConexion) return;  // el mapa pudo cerrarse mientras se cargaba
     map._sinConexion = true;
+    const capas = [];
     map.getContainer().classList.add('mapa-sin-conexion');
     const renderer = L.canvas({ padding: 0.5 });
     const tierra = { color: '#b9ad9a', weight: 0.8, fillColor: '#efe7da', fillOpacity: 1 };
 
-    capa(datos.paises, () => tierra, renderer).addTo(map);
-    capa(datos.regiones, () => ({ ...tierra, color: '#a99a84', weight: 1 }), renderer).addTo(map);
-    capa(datos.comunas, f => f.n === 'Talca'
+    capas.push(capa(datos.paises, () => tierra, renderer).addTo(map));
+    capas.push(capa(datos.regiones, () => ({ ...tierra, color: '#a99a84', weight: 1 }), renderer).addTo(map));
+    capas.push(capa(datos.comunas, f => f.n === 'Talca'
         ? { color: '#8b2635', weight: 2, fillColor: '#f6dfe2', fillOpacity: 1 }
-        : { color: '#c4b7a3', weight: 0.8, dashArray: '3 3', fillOpacity: 0 }, renderer).addTo(map);
+        : { color: '#c4b7a3', weight: 0.8, dashArray: '3 3', fillOpacity: 0 }, renderer).addTo(map));
 
     const etiquetas = L.layerGroup(CIUDADES.map(([nombre, lat, lng, tipo]) => L.marker([lat, lng], {
         interactive: false,
@@ -51,7 +52,24 @@ export function agregarMapaSinConexion(map, mensaje = 'Mapa simplificado: no se 
     const aviso = L.control({ position: 'bottomleft' });
     aviso.onAdd = () => {
         const el = L.DomUtil.create('div', 'mapa-aviso');
-        el.textContent = mensaje;
+        el.innerHTML = `<span>${mensaje}</span>${motivos.length ? `<small>${motivos.join(' · ')}</small>` : ''}`;
+        if (reintentar) {
+            const btn = L.DomUtil.create('button', 'mapa-reintentar', el);
+            btn.type = 'button';
+            btn.textContent = '↻ Reintentar';
+            L.DomEvent.on(btn, 'click', e => {
+                L.DomEvent.stop(e);
+                // Quita el mapa simplificado y vuelve a probar el de calles
+                capas.forEach(c => c.remove());
+                plaza.remove();
+                etiquetas.remove();
+                map.off('zoomend', ajustar);
+                aviso.remove();
+                map.getContainer().classList.remove('mapa-sin-conexion');
+                map._sinConexion = false;
+                reintentar();
+            });
+        }
         return el;
     };
     aviso.addTo(map);
