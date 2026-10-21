@@ -1,6 +1,6 @@
 # Publica la app en GitHub Pages cada vez que se guarda un cambio en "main".
 # Para activarlo una sola vez: GitHub > Settings > Pages > Source: "GitHub Actions".
-# La app queda en https://benjaminv14.github.io/mesa-gourmet/ (panel: .../admin.html)
+# La app queda en https://benjaminv14.github.io/Mesa-Gourmet/ (panel: .../admin.html)
 name: Publicar la app
 
 on:
