@@ -12,9 +12,10 @@ import { registerActions } from '../ui/actions.js';
 const LEVEL_NAMES = ['Sin nivel', 'Novicio Gourmet', 'Explorador Gastronómico', 'Crítico Consagrado', 'Sommelier Talquino', 'Embajador Gourmet', 'Maestro Culinario'];
 export const LOCALES_PARA_INSIGNIA = 5;
 
-export function userReviews() {
-    if (!isLoggedIn()) return [];
-    return db.reviews.filter(r => r.usuario.id === state.user.id && r.estado !== 'rechazada');
+/** Reseñas de una persona (por defecto, la que usa la app) */
+export function userReviews(userId = isLoggedIn() ? state.user.id : null) {
+    if (!userId) return [];
+    return db.reviews.filter(r => r.usuario.id === userId && r.estado !== 'rechazada');
 }
 
 export function calculateLevel(count) {
@@ -48,9 +49,9 @@ export function visitedLocalesCount() {
 }
 
 /** Locales distintos donde el usuario probó cada tipo de plato */
-function localesPorTipo() {
+function localesPorTipo(userId) {
     const mapa = {};
-    userReviews().forEach(r => (r.productos || []).forEach(p => {
+    userReviews(userId).forEach(r => (r.productos || []).forEach(p => {
         const tipo = tipoDePlato(nombreProducto(p));
         if (tipo) (mapa[tipo] = mapa[tipo] || new Set()).add(r.localId);
     }));
@@ -71,10 +72,11 @@ export function localesQueOfrecen() {
  * Insignias: existen para los tipos de plato que ofrecen 5 o más locales (más la comida favorita).
  * Visibles = desbloqueadas + la favorita; el resto quedan ocultas.
  */
-export function computeLogros() {
-    const probados = localesPorTipo();
+export function computeLogros(userId) {
+    const probados = localesPorTipo(userId);
     const ofrecen = localesQueOfrecen();
-    const favorita = getTipo(state.user?.productoFavorito)?.id;
+    // La comida favorita solo se conoce de la cuenta propia
+    const favorita = userId && userId !== state.user?.id ? null : getTipo(state.user?.productoFavorito)?.id;
     return TIPOS_PLATO
         .filter(t => (ofrecen[t.id]?.size || 0) >= LOCALES_CON_TIPO || t.id === favorita)
         .map(t => {

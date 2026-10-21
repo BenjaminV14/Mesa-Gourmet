@@ -107,7 +107,7 @@ const extras = {
         etiquetas: ['empanadas', 'comida rapida', 'venezolana', 'completos', 'sandwich'],
         caracteristicasDetalle: {
             'Delivery': 'Uber Eats, PedidosYa y delivery propio',
-            'WiFi Disponible': 'Clave: quempanadas',
+            'WiFi Disponible': 'Clave: quempandas',
             'Ingreso de Mascotas': 'Pet friendly',
             'Calefacción': 'A gas, en invierno',
             'Acceso Discapacitados': 'Por la entrada principal',
@@ -178,6 +178,18 @@ function visitasMesPasado() {
     }));
 }
 
+// Ejemplo de aviso en el panel: Diego ya va en 5 visitas a Carlota este mes
+function visitasEsteMes() {
+    const hoy = new Date().getDate();
+    const platos = [['Café Latte especial'], ['Sándwich de Rúcula & Jamón Serrano'], ['Café Latte especial'], ['Café Latte especial'], ['Sándwich de Rúcula & Jamón Serrano']];
+    return platos.map((productos, k) => ({
+        id: 30 + k, usuario: { nombre: 'Diego Muñoz', avatar: 'DM' }, dias: Math.min(k * 3, hoy - 1), localId: 2, productos, fotos: [],
+        notaComida: 8.4 + (k % 3) * 0.2, notaServicio: 8.9 + (k % 2) * 0.2,
+        comentario: ['Mi café de todas las mañanas, siempre bien preparado.', 'El sándwich de rúcula sigue igual de bueno.', 'Pasé por un latte antes de clases.', 'Atención rápida aunque estaba lleno.', 'Ya soy cliente fijo, nunca falla.'][k],
+        likes: k
+    }));
+}
+
 function slug(nombre) {
     return nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
@@ -188,7 +200,7 @@ export function buildSeedReviews() {
         fecha: new Date(`${r.fecha}T13:00:00`).toISOString(),
         fotos: r.fotoComida ? [{ item: nombreProducto(r.productos[0]), url: r.fotoComida, likes: LIKES_FOTOS[nombreProducto(r.productos[0])] || 10 }] : []
     }));
-    const extra = [...EXTRA_REVIEWS, ...visitasMesPasado()].map(({ dias, ...r }) => ({ ...r, fecha: haceDias(dias), isDrink: false }));
+    const extra = [...EXTRA_REVIEWS, ...visitasMesPasado(), ...visitasEsteMes()].map(({ dias, ...r }) => ({ ...r, fecha: haceDias(dias), isDrink: false }));
     return [...base, ...extra].map(r => {
         const { fotoComida, likedBy, ...rest } = r;
         void fotoComida;

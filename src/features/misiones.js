@@ -124,7 +124,7 @@ function slideHtml({ foto, review }) {
         <div class="photo-slide-overlay"></div>
         <div class="photo-slide-info">
             <h3>${esc(foto.item)}</h3>
-            <p><b>${esc(local?.nombre || '')}</b> · @${esc(review.usuario.username || review.usuario.nombre)} · ${esc(timeAgo(review.fecha))}</p>
+            <p><b>${esc(local?.nombre || '')}</b> · <button class="link-btn photo-user" data-action="photo-open-user" data-user="${esc(review.usuario.id)}">@${esc(review.usuario.username || review.usuario.nombre)}</button> · ${esc(timeAgo(review.fecha))}</p>
             <p class="photo-quote">"${esc(review.comentario.slice(0, 90))}${review.comentario.length > 90 ? '…' : ''}"</p>
             <button class="video-local-btn" data-action="photo-go-local" data-id="${local?.id}">¡Me tentó! Ver local</button>
         </div>
@@ -195,6 +195,10 @@ registerActions({
     },
     'photo-nav': el => navigate(Number(el.dataset.dir)),
     'photo-close': () => closePhotoFeed(),
+    'photo-open-user': el => {
+        closePhotoFeed();
+        import('./perfil-publico.js').then(m => m.openPublicProfile(el.dataset.user));
+    },
     'photo-go-local': el => {
         closePhotoFeed();
         showLocalDetail(el.dataset.id);

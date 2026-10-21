@@ -5,6 +5,7 @@ import { db, persist, saveSession, getLocal } from '../data/store.js';
 import { TIPOS_PLATO, getTipo, buscarTipos } from '../data/tipos-plato.js';
 import { vipDeUsuario } from '../data/metrics.js';
 import { compressImage } from '../services/ai.js';
+import { cropperHtml, abrirRecorte, fotoRecortada, cerrarRecorte } from '../ui/avatar-cropper.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
 import { esc, safeUrl, avatarContent } from '../utils/html.js';
@@ -172,15 +173,18 @@ registerActions({
         const file = el.files[0];
         if (!file) return;
         try {
-            // Foto cuadrada y liviana; con Supabase pasa por la misma revisión de IA que las fotos de platos
-            avatarNuevo = await compressImage(file, 320, 0.8);
-            document.getElementById('avatarPreview').innerHTML = `<img src="${esc(avatarNuevo)}" alt="">`;
+            // Se reduce la foto y se abre el ajuste (mover y zoom). Con Supabase pasa por la misma revisión de IA que las fotos de platos
+            abrirRecorte(await compressImage(file, 1000, 0.88));
+            document.getElementById('avatarPreview').hidden = true;
         } catch (err) {
             showToast(err.message || 'No se pudo usar esa imagen.');
         }
     },
     'avatar-remove': () => {
         avatarNuevo = null;
+        cerrarRecorte();
+        document.getElementById('cropperBox').hidden = true;
+        document.getElementById('avatarPreview').hidden = false;
         document.getElementById('avatarPreview').innerHTML = avatarContent({ nombre: state.user.nombre });
     },
     'edit-profile': () => openSheet({
@@ -195,6 +199,7 @@ registerActions({
                     <p class="sheet-text small">Una foto de tu cara o la que te represente. Se revisa que sea apropiada.</p>
                 </div>
             </div>
+            ${cropperHtml()}
             <label for="newName">Nombre visible</label><input id="newName" maxlength="40" value="${esc(state.user.nombre)}">
             <label for="newUsername">Nombre de usuario</label>
             <div class="input-prefix"><span>@</span><input id="newUsername" maxlength="24" value="${esc(state.user.username)}" autocapitalize="none" spellcheck="false"></div>
@@ -204,6 +209,8 @@ registerActions({
         actions: [{ label: 'Guardar', action: 'save-profile', variant: 'primary' }, { label: 'Cancelar', action: 'close-sheet', variant: 'ghost' }]
     }),
     'save-profile': () => {
+        const recorte = fotoRecortada();
+        if (recorte) avatarNuevo = recorte;
         const nombre = document.getElementById('newName').value.trim();
         const username = document.getElementById('newUsername').value.trim().toLowerCase();
         const err = document.getElementById('profileError');
@@ -215,6 +222,7 @@ registerActions({
         state.user.username = username;
         if (avatarNuevo !== undefined) state.user.avatarUrl = avatarNuevo;
         avatarNuevo = undefined;
+        cerrarRecorte();
         db.reviews.filter(r => r.usuario.id === state.user.id).forEach(r => {
             r.usuario.nombre = nombre;
             r.usuario.username = username;

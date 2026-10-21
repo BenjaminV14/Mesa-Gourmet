@@ -29,6 +29,7 @@ export function showLocalDetail(localId, tab = 'info') {
     const local = getLocal(Number(localId));
     if (!local) return;
     state.currentLocalId = local.id;
+    document.getElementById('publicProfile')?.remove(); // si se abrió desde el perfil de alguien
     track('ver_local', { localId: local.id, destacado: isSponsored(local) });
 
     const tabs = [

@@ -13,6 +13,7 @@ import { renderUsuarios, setUsuariosRerender } from './views/usuarios.js';
 import { renderEncuesta, setEncuestaRerender } from './views/encuesta.js';
 import { renderMapaAdmin } from './views/mapa.js';
 import { renderMetricas, setMetricasRerender } from './views/metricas.js';
+import { nuevosVip } from './vip.js';
 
 const VIEWS = {
     resumen: { label: 'Resumen', icon: '📊', render: renderResumen },
@@ -24,7 +25,7 @@ const VIEWS = {
     eventos: { label: 'Eventos y promos', icon: '📅', render: renderEventos },
     moderacion: { label: 'Moderación', icon: '🛡️', render: renderModeracion, badge: () => db.reviews.filter(r => r.estado === 'pendiente').length + db.moderation.length + db.videos.filter(v => v.estado === 'pendiente').length + db.reports.filter(r => r.tipo === 'resena' && r.estado === 'abierto').length },
     reportes: { label: 'Reportes', icon: '⚠️', render: renderReportes, badge: () => db.reports.filter(r => r.tipo !== 'resena' && r.estado === 'abierto').length },
-    metricas: { label: 'Top y clientes', icon: '🏆', render: renderMetricas },
+    metricas: { label: 'Top y clientes', icon: '🏆', render: renderMetricas, badge: () => nuevosVip().length },
     usuarios: { label: 'Usuarios y datos', icon: '👥', render: renderUsuarios }
 };
 

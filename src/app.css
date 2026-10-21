@@ -690,10 +690,36 @@ button.profile-avatar-large img { border-radius: 50%; }
 .rank-info b { color: #fff; font-size: 0.98rem; font-weight: 800; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
 .rank-info small { color: #b6c2d4; }
 .rank-num { color: #ffe45c; font-size: 1.05rem; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
-/* Recorrer el Top en el mapa */
-.map-top-nav { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 110px); }
-.map-top-nav:empty { display: none; }
-.map-top-btn { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--mesa-gold); background: rgba(15, 23, 42, 0.9); color: var(--mesa-gold); font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
-.map-top-btn[disabled] { opacity: 0.35; cursor: default; }
-.map-top-label { min-width: 0; padding: 8px 12px; border-radius: 999px; border: none; background: rgba(15, 23, 42, 0.9); color: #f8fafc; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
-.map-top-label b { color: #ffe45c; }
+
+/* Filas con flechas para desplazarse (filtros del mapa, pestañas del Top 50) */
+.scroll-row { position: relative; display: flex; align-items: center; min-width: 0; }
+.scroll-row-track { flex: 1; min-width: 0; }
+.scroll-row .map-filters, .scroll-row .top-tabs { margin-bottom: 0; }
+.scroll-row { margin-bottom: 8px; }
+.scroll-arrow { position: absolute; top: 50%; transform: translateY(-60%); z-index: 3; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--mesa-gold); background: #0f172a; color: var(--mesa-gold); font-size: 1.35rem; font-weight: 700; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 6px rgba(15, 23, 42, 0.85), 0 4px 12px rgba(0, 0, 0, 0.5); }
+.scroll-arrow.left { left: 0; }
+.scroll-arrow.right { right: 0; }
+
+/* Perfil público */
+.review-user { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; color: inherit; }
+.review-user:hover .review-author b { text-decoration: underline; text-underline-offset: 3px; }
+.review-user .review-author { display: flex; flex-direction: column; }
+.public-profile { display: flex; flex-direction: column; gap: 12px; }
+.public-head { display: flex; align-items: center; gap: 14px; }
+.public-head .profile-avatar-large { flex-shrink: 0; overflow: hidden; }
+.public-names { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.public-names h2 { font-size: 1.3rem; color: #fff; overflow-wrap: anywhere; }
+.public-names p { color: var(--mesa-gold); font-size: 0.85rem; }
+.public-follow { align-self: flex-start; margin-left: 0; }
+.public-profile .profile-stats { margin: 0; }
+.public-profile .profile-badges { padding: 0; }
+.photo-user { color: #ffe45c; pointer-events: auto; font-weight: 700; text-decoration: none; }
+
+/* Ajuste de la foto de perfil */
+.cropper-box { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 14px; }
+.cropper { position: relative; overflow: hidden; border-radius: 50%; background: #0b1222; border: 3px solid var(--mesa-gold); touch-action: none; cursor: grab; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); max-width: 100%; }
+.cropper:active { cursor: grabbing; }
+.cropper img { position: absolute; top: 0; left: 0; max-width: none; user-select: none; pointer-events: none; }
+.crop-controls { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 280px; }
+.crop-controls input { flex: 1; accent-color: var(--mesa-gold); }
+.crop-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--mesa-gold); background: #1e293b; color: var(--mesa-gold); font-size: 1.3rem; font-weight: 800; cursor: pointer; }

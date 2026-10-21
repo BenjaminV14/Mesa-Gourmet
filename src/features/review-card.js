@@ -46,11 +46,13 @@ export function reviewCard(r, { showLocal = true } = {}) {
     return `
     <article class="card review-card" data-review="${esc(r.id)}">
         <div class="review-head">
-            <div class="avatar">${avatarContent(r.usuario)}</div>
-            <div class="review-author">
+            <button class="review-user" data-action="open-user" data-user="${esc(r.usuario.id)}" aria-label="Ver el perfil de ${esc(r.usuario.nombre)}">
+            <span class="avatar">${avatarContent(r.usuario)}</span>
+            <span class="review-author">
                 <b>${esc(r.usuario.nombre)}${local && vipsDeLocal(local.id).some(c => c.usuario.id === r.usuario.id) ? ` <span class="vip-badge" title="Cliente VIP de ${esc(local.nombre)}">👑 VIP</span>` : ''}</b>
                 <span>${r.usuario.username ? `@${esc(r.usuario.username)} · ` : ''}${esc(timeAgo(r.fecha))}</span>
-            </div>
+            </span>
+            </button>
             ${propia ? '' : `<button class="follow-btn ${siguiendo(r.usuario.id) ? 'is-on' : ''}" data-action="follow-user" data-user="${esc(r.usuario.id)}">${siguiendo(r.usuario.id) ? 'Siguiendo' : 'Seguir'}</button>`}
         </div>
         ${showLocal && local ? `<button class="review-local" data-action="open-local" data-id="${local.id}"><img src="${esc(safeUrl(local.imagen))}" alt=""> ${esc(local.nombre)}</button>` : ''}

@@ -2,6 +2,7 @@
 // La nota usada es la de los últimos 30 días. Los destacados pagados NO influyen en el ranking.
 import { rankingGeneral, rankingCategoria } from '../data/metrics.js';
 import { CATEGORIAS_TOP } from '../data/categorias.js';
+import { scrollRow, actualizarFlechas } from '../ui/scroll-row.js';
 import { registerActions } from '../ui/actions.js';
 import { emptyState, ratingStars } from '../ui/cards.js';
 import { esc, safeUrl } from '../utils/html.js';
@@ -46,14 +47,13 @@ export function renderTop() {
             <h2 class="section-title">Top 50 de Talca</h2>
             <p>El ranking de la comunidad</p>
         </div>
-        <div class="top-tabs" role="tablist">
-            ${TABS.map((t, i) => `<button class="top-tab ${i === 0 ? 'is-on' : ''}" role="tab" data-action="top-tab" data-index="${i}">${t.emoji} ${esc(t.nombre)}</button>`).join('')}
-        </div>
+        ${scrollRow(TABS.map((t, i) => `<button class="top-tab ${i === 0 ? 'is-on' : ''}" role="tab" data-action="top-tab" data-index="${i}">${t.emoji} ${esc(t.nombre)}</button>`).join(''), { className: 'top-tabs', label: 'Categorías del ranking' })}
         <div class="top-pager" id="topPager">
             ${TABS.map(t => `<section class="top-pane" aria-label="Top ${esc(t.nombre)}">${pane(t)}</section>`).join('')}
         </div>
     `;
     const pager = document.getElementById('topPager');
+    requestAnimationFrame(() => actualizarFlechas());
     let timer = null;
     // Al deslizar, se marca la pestaña correspondiente
     pager.addEventListener('scroll', () => {

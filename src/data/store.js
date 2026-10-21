@@ -2,7 +2,7 @@
 // cuando se conecte Supabase, estas mismas funciones leerán y escribirán en la base de datos.
 import { buildSeedLocales, buildSeedReviews, buildSeedVideos } from './seed.js';
 
-const STORAGE_KEY = 'mg:v5:data';
+const STORAGE_KEY = 'mg:v6:data';
 const SESSION_KEY = 'mg:v2:session';
 const HISTORY_KEY = 'mg:v2:busquedas';
 

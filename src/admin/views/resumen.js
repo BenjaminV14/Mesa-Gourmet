@@ -3,6 +3,7 @@ import { db } from '../../data/store.js';
 import { esc } from '../../utils/html.js';
 import { isSponsored, diasRestantesPatrocinio, PRECIO_PATROCINIO } from '../../features/sponsors.js';
 import { emptyRow } from '../ui.js';
+import { nuevosVip } from '../vip.js';
 
 export function renderResumen() {
     const semana = Date.now() - 7 * 86400000;
@@ -18,6 +19,7 @@ export function renderResumen() {
         ...reportesAbiertos.slice(0, 5).map(r => ({ icon: '⚠️', text: `Reporte: ${r.tipo}${r.localId ? ` en ${db.locales.find(l => l.id === r.localId)?.nombre || ''}` : ''}`, go: 'reportes' })),
         ...(pendientes ? [{ icon: '🛡️', text: `${pendientes} elemento(s) esperando moderación`, go: 'moderacion' }] : []),
         ...porVencer.map(l => ({ icon: '⏳', text: `El destacado de ${l.nombre} vence en ${diasRestantesPatrocinio(l)} día(s)`, go: 'patrocinios' })),
+        ...nuevosVip().map(v => ({ icon: '👑', text: `${v.usuario.nombre} (@${v.usuario.username || ''}) llegó a ${v.visitas} visitas en ${v.local.nombre} este mes: ya es cliente VIP`, go: 'metricas' })),
         ...sinCarta.map(l => ({ icon: '📋', text: `${l.nombre} no tiene carta cargada`, go: 'cartas' }))
     ];
 

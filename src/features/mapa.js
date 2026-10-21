@@ -19,36 +19,13 @@ import { search } from './search.js';
 import { requireAccount } from './auth.js';
 import { track } from '../services/analytics.js';
 import { addBaseLayer } from '../services/tiles.js';
-import { notaActual, dietaLocal, rankingGeneral } from '../data/metrics.js';
+import { notaActual, dietaLocal } from '../data/metrics.js';
+import { scrollRow, actualizarFlechas } from '../ui/scroll-row.js';
 
 let map = null;
 let markersLayer = null;
 let userMarker = null;
 let currentFilter = 'todos';
-let topIndex = -1;   // posición en el Top que se está mirando en el mapa (-1 = ninguna)
-
-// Recorrer el Top 50 en el mapa: ◀ anterior · siguiente ▶
-function topNavHtml() {
-    const top = rankingGeneral();
-    if (!top.length) return '';
-    const actual = top[topIndex];
-    return `
-        <button class="map-top-btn" data-action="map-top" data-dir="-1" aria-label="Anterior del Top" ${topIndex <= 0 ? 'disabled' : ''}>◀</button>
-        <button class="map-top-label" data-action="map-top" data-dir="0">
-            ${actual ? `🏆 <b>Top ${actual.puesto}</b> · ${esc(actual.local.nombre)} · ${actual.nota.total.toFixed(1)}` : '🏆 Recorre el <b>Top</b> en el mapa'}
-        </button>
-        <button class="map-top-btn" data-action="map-top" data-dir="1" aria-label="Siguiente del Top" ${topIndex >= top.length - 1 ? 'disabled' : ''}>▶</button>`;
-}
-
-function irAlTop(dir) {
-    const top = rankingGeneral();
-    if (!top.length || !map) return;
-    topIndex = dir === 0 && topIndex < 0 ? 0 : Math.max(0, Math.min(top.length - 1, topIndex + dir));
-    const { local } = top[topIndex];
-    map.flyTo([local.lat, local.lng], 17, { duration: 0.8 });
-    showPreview(local.id);
-    document.getElementById('mapTopNav').innerHTML = topNavHtml();
-}
 
 const ESTADO_COLOR = { abierto: '#10b981', 'cierra-pronto': '#f59e0b', 'abre-pronto': '#3b82f6', cerrado: '#ef4444' };
 
@@ -64,15 +41,12 @@ export function renderMapa() {
         </div>
         <div id="mapPane">
             ${state.query ? `<button class="filter-chip-active" data-action="clear-search">Buscando "${esc(state.query)}" ✕</button>` : ''}
-            <div class="map-filters">
-                ${[['todos', 'Todos'], ['abiertos', 'Abiertos ahora'], ['destacados', '★ Destacados'], ['vegano', '🌱 Vegano'], ['vegetariano', '🥬 Vegetariano']]
-                    .map(([key, label]) => `<button class="map-filter-btn ${key === currentFilter ? 'active' : ''}" data-action="map-filter" data-filter="${key}">${label}</button>`).join('')}
-            </div>
+            ${scrollRow(`${[['todos', 'Todos'], ['abiertos', 'Abiertos ahora'], ['destacados', '★ Destacados'], ['vegano', '🌱 Vegano'], ['vegetariano', '🥬 Vegetariano']]
+                    .map(([key, label]) => `<button class="map-filter-btn ${key === currentFilter ? 'active' : ''}" data-action="map-filter" data-filter="${key}">${label}</button>`).join('')}`, { className: 'map-filters' })}
             <div class="map-wrap">
                 <div id="talcaMap" class="talca-map" aria-label="Mapa de locales"></div>
                 <button class="map-locate-btn" data-action="map-locate" aria-label="Centrar en mi ubicación" title="Mi ubicación">📍</button>
                 <button class="map-locate-btn map-talca-btn" data-action="map-talca" aria-label="Volver a Talca" title="Volver a Talca">🏙️</button>
-                <div class="map-top-nav" id="mapTopNav">${topNavHtml()}</div>
                 <div id="mapPreview" class="map-preview" hidden></div>
             </div>
             <div class="map-legend">
@@ -85,7 +59,7 @@ export function renderMapa() {
         </div>
         <div id="eventsPane" hidden></div>
     `;
-    requestAnimationFrame(initMap);
+    requestAnimationFrame(() => { initMap(); actualizarFlechas(); });
 }
 
 export function destroyMap() {
@@ -257,7 +231,6 @@ registerActions({
         drawMarkers(true);
     },
     'map-preview-close': () => hidePreview(),
-    'map-top': el => irAlTop(Number(el.dataset.dir)),
     'map-talca': () => map && map.setView([TALCA_CENTER.lat, TALCA_CENTER.lng], 14),
     'map-locate': () => {
         if (!navigator.geolocation) return showToast('Tu dispositivo no permite obtener la ubicación.');

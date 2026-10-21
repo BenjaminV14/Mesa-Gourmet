@@ -11,6 +11,7 @@ import { setReviewPublishedHandler } from './features/review-form.js';
 import { showWelcomeIfNeeded } from './features/perfil.js';
 import { renderResults } from './features/inicio.js';
 import { track } from './services/analytics.js';
+import './features/perfil-publico.js';
 import { setupPwa } from './services/pwa.js';
 
 function requestLocation() {
