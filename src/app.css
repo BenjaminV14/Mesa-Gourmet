@@ -728,3 +728,4 @@ button.profile-avatar-large img { border-radius: 50%; }
 .form-info { color: #bbf7d0; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.4); padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; }
 .auth-forgot { align-self: flex-end; font-size: 0.82rem; margin: -6px 0 6px; }
 .app-cargando { position: fixed; inset: auto 0 calc(24px + env(safe-area-inset-bottom, 0px)); margin: 0 auto; width: max-content; z-index: 9000; padding: 8px 14px; border-radius: 999px; background: rgba(15, 23, 42, 0.92); color: #f8fafc; font-size: 0.82rem; border: 1px solid rgba(255, 215, 0, 0.4); }
+.como-llegar { display: inline-block; margin: -4px 0 10px 30px; text-decoration: none; }

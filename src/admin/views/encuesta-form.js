@@ -10,9 +10,11 @@ import { TALCA_CENTER } from '../../state.js';
 import { TARGETS, planImport } from '../survey.js';
 import { SECCIONES, DEFAULT_PREGUNTAS } from '../preguntas.js';
 import { toast, confirmDialog } from '../ui.js';
+import { dietaLocal } from '../../data/metrics.js';
 
 let localId = null;
 let soloPendientes = false;
+let creando = false;
 let rerender = () => {};
 const timers = {};
 
@@ -55,6 +57,41 @@ export function crearLocal(nombre, extra = {}) {
     };
     db.locales.push(local);
     return local;
+}
+
+/** Borra el local con sus reseñas y videos (lo usan Locales y Encuesta) */
+export function eliminarLocal(local) {
+    db.locales = db.locales.filter(l => l.id !== local.id);
+    db.reviews = db.reviews.filter(r => r.localId !== local.id);
+    db.videos = db.videos.filter(v => v.localId !== local.id);
+    persist();
+}
+
+const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const ORDEN = [1, 2, 3, 4, 5, 6, 0];
+
+/** Lo que la app muestra hoy para el dato de una pregunta (vacío si no hay nada) */
+function valorEnApp(local, uso) {
+    const conDetalle = c => (local.caracteristicas || []).includes(c)
+        ? `Sí${local.caracteristicasDetalle?.[c] ? ` (${local.caracteristicasDetalle[c]})` : ''}`
+        : 'No';
+    if (uso.startsWith('car:')) return conDetalle(uso.slice(4));
+    if (uso.startsWith('det:')) return conDetalle(uso.slice(4));
+    if (uso.startsWith('dietaN:')) {
+        const n = dietaLocal(local, uso.slice(7)).cantidad;
+        return n ? `${n} en la carta` : '';
+    }
+    if (uso.startsWith('horario:')) return local.horariosSemana?.[DIAS[Number(uso.slice(8))]] || '';
+    if (uso === 'horario') {
+        const h = local.horariosSemana || {};
+        if (!Object.values(h).some(v => v && v !== 'Cerrado')) return '';
+        return ORDEN.map(i => `${DIAS[i].slice(0, 3)} ${h[DIAS[i]] || 'Cerrado'}`).join(' · ');
+    }
+    if (uso === 'coords') return Math.abs(local.lat - TALCA_CENTER.lat) < 0.0005 && Math.abs(local.lng - TALCA_CENTER.lng) < 0.0005 ? '' : `${local.lat}, ${local.lng}`;
+    if (uso === 'etiquetas') return (local.etiquetas || []).join(', ');
+    if (uso === 'instagram' || uso === 'tiktok') return local[uso] ? `@${local[uso]}` : '';
+    const v = local[uso];
+    return Array.isArray(v) ? v.join(', ') : (v ?? '') === '' ? '' : String(v);
 }
 
 function respuestas(local) {
@@ -105,7 +142,7 @@ function chipsRapidos(p) {
     if (!/^(car|det|dietaN):/.test(p.uso)) return '';
     const opciones = ['Sí', 'No'];
     if (/Mascotas|Fumadores/.test(p.uso)) opciones.push('Solo en terraza');
-    if (p.uso === 'car:Mascotas (Solo en Terraza)') opciones.push('En todo el local');
+    if (p.uso === 'car:Ingreso de Mascotas') opciones.push('En todo el local');
     return `<div class="adm-quick">${opciones.map(o => `<button type="button" class="adm-quick-chip" data-action="adm-ans-quick" data-q="${esc(p.id)}" data-value="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
 }
 
@@ -130,7 +167,14 @@ function preguntaHtml(local, p) {
             ${p.sugerencia ? `<p class="adm-q-sug">💬 Pregúntalo así: ${esc(p.sugerencia)}</p>` : ''}
             ${input}
             <div class="adm-q-foot">${usoPill(p.uso)}${chipsRapidos(p)}</div>
+            ${enApp(local, p)}
         </div>`;
+}
+
+function enApp(local, p) {
+    if (p.uso === 'interno' || p.uso === 'ignorar') return '';
+    const v = valorEnApp(local, p.uso);
+    return `<p class="adm-q-app" data-qapp="${esc(p.id)}">📱 En la app hoy: ${v ? `<b>${esc(v)}</b>` : '<i>sin dato</i>'}</p>`;
 }
 
 function renderLocalForm(local) {
@@ -177,10 +221,20 @@ export function renderResponder() {
                         return `<option value="${l.id}" ${l.id === localId ? 'selected' : ''}>${esc(l.nombre)} · ${hechas}/${total}</option>`;
                     }).join('')}
                 </select>
-                <button class="adm-btn ghost" data-action="adm-ans-new">＋ Local nuevo</button>
-                ${local ? `<label class="adm-check"><input type="checkbox" data-change="adm-ans-pending" ${soloPendientes ? 'checked' : ''}> Solo preguntas sin responder</label>` : ''}
+                ${creando ? '' : '<button class="adm-btn" data-action="adm-ans-new">＋ Local nuevo</button>'}
+                ${local && !creando ? `<button class="adm-btn danger" data-action="adm-ans-delete">🗑️ Eliminar local</button>` : ''}
             </div>
-            <p class="adm-help">Las preguntas con <span class="adm-pill ok">📱</span> actualizan la ficha del local apenas escribes. Las <span class="adm-pill muted">🔒 Solo para ti</span> quedan guardadas aquí y no las ve nadie más.</p>
+            ${creando ? `
+            <form class="adm-new-local" id="admNuevoLocal" novalidate>
+                <label class="adm-field" for="nl_nombre"><span>Nombre del local nuevo</span>
+                    <input id="nl_nombre" type="text" placeholder="Ej: Café Las Rosas" autocomplete="off" required></label>
+                <div class="adm-row-actions">
+                    <button type="button" class="adm-btn ghost" data-action="adm-ans-new-cancel">Cancelar</button>
+                    <button type="submit" class="adm-btn primary">Crear y empezar la encuesta</button>
+                </div>
+            </form>` : ''}
+            ${local && !creando ? `<label class="adm-check"><input type="checkbox" data-change="adm-ans-pending" ${soloPendientes ? 'checked' : ''}> Solo preguntas sin responder</label>` : ''}
+            <p class="adm-help">Las preguntas con <span class="adm-pill ok">📱</span> actualizan la ficha del local apenas escribes, y debajo ves lo que la app muestra hoy. Las <span class="adm-pill muted">🔒 Solo para ti</span> quedan guardadas aquí y no las ve nadie más.</p>
         </section>
         ${local ? renderLocalForm(local) : ''}`;
 }
@@ -200,6 +254,11 @@ function guardarRespuesta(qid, valor) {
     document.getElementById('admSurveySaved').textContent = `Guardado ✓ ${hora}`;
     document.querySelector(`[data-qbox="${CSS.escape(qid)}"]`)?.classList.toggle('is-done', !!valor.trim());
     document.getElementById('admSurveyAvisos').innerHTML = avisos.map(a => `<p class="adm-warning">⚠️ ${esc(a)}</p>`).join('');
+    // Lo que muestra la app cambia al instante
+    document.querySelectorAll('[data-qapp]').forEach(el => {
+        const q = banco().find(x => x.id === el.dataset.qapp);
+        if (q) el.outerHTML = enApp(local, q);
+    });
 }
 
 // =================== VISTA: PREGUNTAS ===================
@@ -251,11 +310,20 @@ registerActions({
     'adm-ans-local': el => { localId = el.value ? Number(el.value) : null; rerender(); },
     'adm-ans-pending': el => { soloPendientes = el.checked; rerender(); },
     'adm-ans-new': () => {
-        const local = crearLocal('Local nuevo');
-        persist();
-        localId = local.id;
-        toast('Local creado. Escribe su nombre en la primera pregunta.');
+        creando = true;
         rerender();
+        document.getElementById('nl_nombre')?.focus();
+    },
+    'adm-ans-new-cancel': () => { creando = false; rerender(); },
+    'adm-ans-delete': () => {
+        const local = getLocal(localId);
+        if (!local) return;
+        confirmDialog(`¿Eliminar "${local.nombre}" de la app? Se borran también sus respuestas de la encuesta, reseñas y videos.`, () => {
+            eliminarLocal(local);
+            localId = null;
+            toast('Local eliminado');
+            rerender();
+        }, 'Eliminar');
     },
     'adm-ans': el => {
         const qid = el.dataset.q;
@@ -321,4 +389,21 @@ registerActions({
         banco();
         rerender();
     }, 'Restaurar')
+});
+
+document.addEventListener('submit', e => {
+    if (e.target.id !== 'admNuevoLocal') return;
+    e.preventDefault();
+    const nombre = document.getElementById('nl_nombre').value.trim();
+    if (nombre.length < 2) return toast('Escribe el nombre del local.', 'error');
+    if (db.locales.some(l => normalize(l.nombre) === normalize(nombre))) return toast(`Ya existe un local llamado "${nombre}". Elígelo en la lista.`, 'error');
+    const local = crearLocal(nombre);
+    // La pregunta del nombre queda respondida
+    const p = banco().find(x => x.uso === 'nombre');
+    if (p) respuestas(local)[p.id] = nombre;
+    persist();
+    localId = local.id;
+    creando = false;
+    toast(`${nombre} creado. Ya puedes responder la encuesta.`);
+    rerender();
 });

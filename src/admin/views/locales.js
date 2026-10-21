@@ -6,10 +6,11 @@ import { DIAS_SEMANA, estadoHorario } from '../../utils/time.js';
 import { isSponsored } from '../../features/sponsors.js';
 import { notaActual, DIETAS as DIETAS_APP } from '../../data/metrics.js';
 import { CARACTERISTICAS_KEYWORDS } from '../survey.js';
-import { banco } from './encuesta-form.js';
+import { banco, eliminarLocal } from './encuesta-form.js';
 import { field, textarea, val, toast, confirmDialog, statusPill } from '../ui.js';
+import { compressImage } from '../../services/ai.js';
 
-export const CARACTERISTICAS = [...Object.keys(CARACTERISTICAS_KEYWORDS), 'Ingreso de Mascotas'];
+export const CARACTERISTICAS = Object.keys(CARACTERISTICAS_KEYWORDS);
 
 const DIETAS = DIETAS_APP.map(d => [d.key, `${d.emoji} ${d.label}`]);
 
@@ -85,7 +86,15 @@ function renderForm(local) {
                     ${field('TikTok (usuario)', 'f_tiktok', l.tiktok)}
                     ${field('Facebook (usuario o página)', 'f_facebook', l.facebook)}
                     ${field('Sitio web', 'f_website', l.website, { type: 'url', placeholder: 'https://' })}
-                    ${field('Foto principal (URL)', 'f_imagen', l.imagen, { type: 'url', placeholder: 'https://' })}
+                    <div class="adm-field full adm-logo-field">
+                        <span>Logo o foto principal</span>
+                        <div class="adm-logo-row">
+                            <img id="f_logo_prev" src="${esc(safeUrl(l.imagen) || '')}" alt="" ${l.imagen ? '' : 'hidden'}>
+                            <label class="adm-btn small">📷 Subir imagen<input type="file" accept="image/*" data-change="adm-logo-file" hidden></label>
+                            <input type="hidden" id="f_imagen" value="${esc(l.imagen || '')}">
+                            <small class="adm-muted-cell">Se recorta en cuadrado. Usa el logo del local o una foto de la fachada.</small>
+                        </div>
+                    </div>
                     ${textarea('Descripción', 'f_descripcion', l.descripcion)}
                     ${field('Palabras clave para el buscador (separadas por coma)', 'f_etiquetas', (l.etiquetas || []).join(', '), { full: true, placeholder: 'peruano, ceviche, mariscos' })}
                 </div>
@@ -213,6 +222,19 @@ function saveForm(event) {
 }
 
 registerActions({
+    'adm-logo-file': async el => {
+        const file = el.files[0];
+        if (!file) return;
+        try {
+            const dataUrl = await compressImage(file, 400, 0.85);
+            document.getElementById('f_imagen').value = dataUrl;
+            const prev = document.getElementById('f_logo_prev');
+            prev.src = dataUrl;
+            prev.hidden = false;
+        } catch (err) {
+            toast(err.message || 'No se pudo usar esa imagen.', 'error');
+        }
+    },
     'adm-local-new': () => { editingId = 'nuevo'; rerender(); },
     'adm-local-edit': el => { editingId = Number(el.dataset.id); rerender(); },
     'adm-local-back': () => { editingId = null; rerender(); },
@@ -237,10 +259,7 @@ registerActions({
     'adm-local-delete': el => {
         const local = getLocal(Number(el.dataset.id));
         confirmDialog(`¿Eliminar "${local.nombre}"? También se borrarán sus reseñas y videos.`, () => {
-            db.locales = db.locales.filter(l => l.id !== local.id);
-            db.reviews = db.reviews.filter(r => r.localId !== local.id);
-            db.videos = db.videos.filter(v => v.localId !== local.id);
-            persist();
+            eliminarLocal(local);
             editingId = null;
             toast('Local eliminado');
             rerender();

@@ -7,7 +7,8 @@ import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
 import { estadoBadge, sponsoredBadge, emptyState, ratingStars } from '../ui/cards.js';
 import { esc, safeUrl, formatPrice } from '../utils/html.js';
 import { formatTelefono } from '../utils/text.js';
-import { estadoHorario, DIAS_SEMANA, formatFechaEvento } from '../utils/time.js';
+import { registrarMetrica } from '../services/metricas.js';
+import { estadoHorario, DIAS_SEMANA, formatFechaEvento, promoVigente } from '../utils/time.js';
 import { requireAccount } from './auth.js';
 import { reviewCard } from './review-card.js';
 import { openReviewForm } from './review-form.js';
@@ -16,8 +17,8 @@ import { track } from '../services/analytics.js';
 
 const FEATURE_ICONS = {
     'Seguridad Completa': '🛡️', 'Calefacción': '🔥', 'Aire Acondicionado / Ventilación': '❄️',
-    'Venta de Alcohol': '🍺', 'Mascotas (Solo en Terraza)': '🐾', 'Ingreso de Mascotas': '🐾',
-    'Apto para Fumadores (Solo en Terraza)': '🚬', 'Apto para Fumadores': '🚬', 'Acepta Edenred / BAES': '💳', 'Acceso Discapacitados': '♿',
+    'Venta de Alcohol': '🍺', 'Ingreso de Mascotas': '🐾',
+    'Apto para Fumadores': '🚬', 'Acepta Edenred / BAES': '💳', 'Acceso Discapacitados': '♿',
     'Estacionamiento': '🚗', 'Bicicletero': '🚲', 'Baño / WC': '🚻', 'WiFi Disponible': '📶', 'Terraza': '🪑', 'Delivery': '🛵',
     'Apto para menores de edad': '👨‍👩‍👧', 'Acepta reservas': '📅', 'Arriendo para eventos': '🎉', 'Segundo piso': '🪜',
     'Barra': '🍸', 'Pedidos para llevar': '🥡', 'Consumo en el local': '🍽️'
@@ -30,6 +31,7 @@ export function showLocalDetail(localId, tab = 'info') {
     if (!local) return;
     state.currentLocalId = local.id;
     document.getElementById('publicProfile')?.remove(); // si se abrió desde el perfil de alguien
+    registrarMetrica(local.id, 'vista');
     track('ver_local', { localId: local.id, destacado: isSponsored(local) });
 
     const tabs = [
@@ -47,7 +49,7 @@ export function showLocalDetail(localId, tab = 'info') {
             <div class="hero-actions">
                 <button class="hero-icon fav-btn ${fav ? 'is-fav' : ''}" data-action="toggle-fav" data-id="${local.id}" aria-pressed="${fav}" aria-label="Favorito" title="Favorito">❤️</button>
                 <button class="hero-icon quiero-btn ${quiero ? 'is-on' : ''}" data-action="toggle-quiero" data-id="${local.id}" aria-pressed="${quiero}" aria-label="Quiero ir" title="Quiero ir">🔖</button>
-                <button class="hero-icon" data-action="share-local" data-id="${local.id}" aria-label="Compartir" title="Compartir">↗</button>
+                 <button class="hero-icon" data-action="share-local" data-id="${local.id}" data-metrica="compartir" data-local="${local.id}" aria-label="Compartir" title="Compartir">↗</button>
             </div>
             <img class="detail-avatar" src="${esc(safeUrl(local.imagen))}" alt="Logo de ${esc(local.nombre)}">
             <h1 class="detail-name">${esc(local.nombre)}</h1>
@@ -157,7 +159,7 @@ function renderInfo(local) {
         local.tiktok && ['tiktok', 'TikTok', `https://tiktok.com/@${encodeURIComponent(local.tiktok)}`, `@${local.tiktok}`],
         local.website && ['website', 'Sitio web', safeUrl(local.website), local.website.replace(/^https?:\/\//, '')]
     ].filter(Boolean).map(([red, nombre, url, usuario]) => `
-        <a href="${esc(url)}" target="_blank" rel="noopener" class="social-link-btn ${red}" aria-label="${nombre}: ${esc(usuario)}">
+        <a href="${esc(url)}" target="_blank" rel="noopener" class="social-link-btn ${red}" data-metrica="${red === 'website' ? 'web' : red}" data-local="${local.id}" aria-label="${nombre}: ${esc(usuario)}">
             <span class="social-icon">${REDES_ICONO[red]}</span><span class="social-name">${nombre}</span>
         </a>`);
     const dietas = DIETAS.map(d => ({ ...d, ...dietaLocal(local, d.key) })).filter(d => d.estrellas > 0);
@@ -173,14 +175,15 @@ function renderInfo(local) {
 
         <h3 class="section-title">Contacto y ubicación</h3>
         <button class="info-row" data-action="focus-map" data-id="${local.id}">📍 <span><u>${esc(local.direccion || 'Dirección por confirmar')}</u><small>Ver en el mapa</small></span></button>
+        <a class="mini-btn como-llegar" href="https://www.google.com/maps/dir/?api=1&destination=${local.lat},${local.lng}" target="_blank" rel="noopener" data-metrica="como_llegar" data-local="${local.id}">🧭 Cómo llegar</a>
         ${tel ? `
         <div class="info-row">📞 <span><b>${esc(local.telefono)}</b>
             <span class="info-row-actions">
-                <a class="mini-btn" href="tel:${esc(tel)}">Llamar</a>
+                <a class="mini-btn" href="tel:${esc(tel)}" data-metrica="llamar" data-local="${local.id}">Llamar</a>
                 <button class="mini-btn" data-action="copy-text" data-text="${esc(local.telefono)}">Copiar</button>
             </span></span>
         </div>` : ''}
-        ${whatsappUrl(local) ? `<a class="btn whatsapp-btn" href="${esc(whatsappUrl(local))}" target="_blank" rel="noopener" data-action="whatsapp-track" data-id="${local.id}">
+        ${whatsappUrl(local) ? `<a class="btn whatsapp-btn" href="${esc(whatsappUrl(local))}" target="_blank" rel="noopener" data-action="whatsapp-track" data-id="${local.id}" data-metrica="whatsapp" data-local="${local.id}">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.6-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
             Reservar por WhatsApp</a>
         <p class="whatsapp-num">Se abre WhatsApp al ${esc(formatTelefono(local.whatsappReservas || local.whatsapp))} con tu mensaje de reserva listo.</p>` : ''}
@@ -233,7 +236,7 @@ function renderMenu(local) {
     const dietaIcon = { vegetariano: '🥬', vegano: '🌱', sinGluten: '🌾', sinLactosa: '🥛' };
 
     return `
-        ${local.cartaUrl ? `<a class="btn btn-outline carta-oficial" href="${esc(safeUrl(local.cartaUrl))}" target="_blank" rel="noopener">📄 Ver la carta oficial del local ↗</a>` : ''}
+        ${local.cartaUrl ? `<a class="btn btn-outline carta-oficial" href="${esc(safeUrl(local.cartaUrl))}" target="_blank" rel="noopener" data-metrica="carta" data-local="${local.id}">📄 Ver la carta oficial del local ↗</a>` : ''}
         <p class="menu-intro">La carta se ordena por las fotos de la comunidad: el plato cuya foto tiene más "me gusta" va primero. ¡Sube la tuya al reseñar!</p>
         <div class="menu-list">
             ${carta.map(({ item, foto, likes, totalFotos }, i) => `
@@ -298,7 +301,7 @@ export function eventosVigentes(local, now = Date.now()) {
 
 function renderEventos(local) {
     const eventos = eventosVigentes(local);
-    const promos = local.promociones || [];
+    const promos = (local.promociones || []).filter(p => promoVigente(p));
 
     return `
         <h3 class="section-title">Cartelera</h3>

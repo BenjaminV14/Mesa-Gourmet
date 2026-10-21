@@ -1,17 +1,21 @@
-// Cartas: editar platos y precios de cada local, o importar una carta completa pegando el texto
+// Cartas: primero la lista de locales con buscador; al abrir uno se editan sus platos y precios,
+// o se importa la carta completa desde texto, PDF, foto o planilla (revisando antes de guardar).
 import { db, persist, getLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
+import { normalize } from '../../utils/text.js';
 import { toast, confirmDialog, emptyRow } from '../ui.js';
-import { DIETAS } from '../../data/metrics.js';
+import { DIETAS, dietaLocal } from '../../data/metrics.js';
 import { analizarDietasCarta, sugerirDietas } from '../../services/dietas.js';
+import { leerArchivoCarta } from '../carta-archivo.js';
 
 let localId = null;
 let importPreview = null;
+let busqueda = '';
 let rerender = () => {};
 
 export function setCartasRerender(fn) { rerender = fn; }
-export function selectCartaLocal(id) { if (id) { localId = id; importPreview = null; } }
+export function selectCartaLocal(id) { localId = id || null; importPreview = null; }
 
 /**
  * Convierte texto de una carta en platos. Las líneas sin precio se toman como categoría.
@@ -35,22 +39,93 @@ export function parseMenuText(text) {
     return items;
 }
 
+const clave = nombre => normalize(nombre || '').replace(/[^a-z0-9ñ ]/g, ' ').replace(/\s+/g, ' ').trim();
+const esBebida = categoria => /bebida|trago|cerveza|vino|jugo|cafe|café|coctel|cóctel|schop|licor/i.test(categoria || '');
+
+function filasLocales() {
+    const lista = db.locales.filter(l => !busqueda || normalize(l.nombre).includes(normalize(busqueda)));
+    if (!lista.length) return emptyRow('Ningún local coincide con la búsqueda.');
+    return `<ul class="adm-list adm-carta-locales">${lista.map(l => {
+        const menu = l.menu || [];
+        const bebidas = menu.filter(m => m.isDrink).length;
+        const dietas = DIETAS.map(d => [d, dietaLocal(l, d.key).cantidad]).filter(([, n]) => n);
+        return `
+        <li>
+            <button class="adm-carta-local" data-action="adm-carta-open" data-id="${l.id}">
+                <b>${esc(l.nombre)}</b>
+                <small>${menu.length ? `${menu.length - bebidas} plato(s) · ${bebidas} bebida(s)` : '⚠️ Sin carta todavía'}
+                ${dietas.map(([d, n]) => ` · ${d.emoji} ${n}`).join('')}</small>
+            </button>
+            <button class="adm-btn small" data-action="adm-carta-open" data-id="${l.id}">Abrir carta</button>
+        </li>`;
+    }).join('')}</ul>`;
+}
+
+/** Marca los platos del import que ya están en la carta o que vienen repetidos */
+function duplicados(preview, menu) {
+    const enCarta = new Set(menu.map(m => clave(m.nombre)).filter(Boolean));
+    const vistos = new Set();
+    return preview.map(p => {
+        const k = clave(p.nombre);
+        if (!k) return 'Sin nombre';
+        if (enCarta.has(k)) return 'Ya está en la carta';
+        if (vistos.has(k)) return 'Repetido';
+        vistos.add(k);
+        return '';
+    });
+}
+
+function previewHtml(local) {
+    const problemas = duplicados(importPreview, local.menu || []);
+    const malos = problemas.filter(Boolean).length;
+    return `
+        <div class="adm-import-preview" id="admImportPreview">
+            <p><b>${importPreview.length}</b> platos detectados. Corrige el nombre, la categoría o el precio antes de agregarlos.</p>
+            <div class="adm-table-wrap">
+                <table class="adm-table adm-menu-table">
+                    <thead><tr><th>Plato</th><th>Categoría</th><th>Precio</th><th>Bebida</th><th></th><th></th></tr></thead>
+                    <tbody>${importPreview.map((p, i) => `
+                        <tr class="${problemas[i] ? 'is-dup' : ''}">
+                            <td><input id="ip_nombre_${i}" value="${esc(p.nombre)}" data-input="adm-import-edit" aria-label="Nombre del plato"></td>
+                            <td><input id="ip_cat_${i}" value="${esc(p.categoria || '')}" list="admCategorias" aria-label="Categoría"></td>
+                            <td><input id="ip_precio_${i}" type="number" min="0" step="10" value="${p.precio || 0}" aria-label="Precio"></td>
+                            <td class="center"><input id="ip_drink_${i}" type="checkbox" ${p.isDrink ? 'checked' : ''} aria-label="Es bebida"></td>
+                            <td class="adm-dup-cell">${problemas[i] ? `⚠️ ${esc(problemas[i])}` : ''}</td>
+                            <td><button class="adm-btn small danger" data-action="adm-import-remove" data-index="${i}" aria-label="Quitar">✕</button></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="adm-form-actions">
+                <button class="adm-btn ghost" data-action="adm-import-cancel">Cancelar</button>
+                ${malos ? `<button class="adm-btn" data-action="adm-import-dedupe">Quitar ${malos} repetido(s)</button>` : '<span></span>'}
+                <button class="adm-btn primary" data-action="adm-import-confirm" ${malos ? 'disabled title="Corrige o quita los platos repetidos primero"' : ''}>Agregar ${importPreview.length} platos</button>
+            </div>
+        </div>`;
+}
+
 export function renderCartas() {
-    if (localId === null && db.locales.length) localId = db.locales[0].id;
-    const local = getLocal(localId);
+    if (!db.locales.length) return `<h1 class="adm-title">Cartas</h1>${emptyRow('Primero crea un local.')}`;
+    const local = localId ? getLocal(localId) : null;
+    if (!local) {
+        localId = null;
+        return `
+            <h1 class="adm-title">Cartas</h1>
+            <p class="adm-help">Elige un local para ver y editar su carta, o importarla desde un PDF, una foto o una planilla.</p>
+            <input class="adm-search" type="search" placeholder="Buscar local…" value="${esc(busqueda)}" data-input="adm-carta-buscar" aria-label="Buscar local">
+            <div id="cartaLocales">${filasLocales()}</div>`;
+    }
     const categorias = [...new Set(db.locales.flatMap(l => (l.menu || []).map(m => m.categoria)).filter(Boolean))];
 
     return `
         <div class="adm-head">
-            <h1 class="adm-title">Cartas</h1>
-            <select class="adm-select" data-change="adm-carta-local" aria-label="Elegir local">
-                ${db.locales.map(l => `<option value="${l.id}" ${l.id === localId ? 'selected' : ''}>${esc(l.nombre)}</option>`).join('')}
-            </select>
+            <button class="adm-btn ghost" data-action="adm-carta-back">← Todas las cartas</button>
         </div>
-        ${!local ? emptyRow('Primero crea un local.') : `
+        <h1 class="adm-title">Carta de ${esc(local.nombre)}</h1>
         <datalist id="admCategorias">${categorias.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <section class="adm-card">
-            <h2>${esc(local.nombre)} · ${(local.menu || []).length} platos</h2>
+            <h2>${(local.menu || []).length} platos y bebidas</h2>
+            ${(local.menu || []).length ? `
             <div class="adm-table-wrap">
                 <table class="adm-table adm-menu-table">
                     <thead><tr><th>Plato</th><th>Categoría</th><th>Precio</th><th>Bebida</th><th title="Vegetariano, vegano, sin gluten, sin lactosa">Apto para</th><th>Foto (URL)</th><th>❤️</th><th></th></tr></thead>
@@ -70,37 +145,55 @@ export function renderCartas() {
                 </table>
             </div>
             <p class="adm-help">🤖 La IA revisa la carta y marca qué platos son vegetarianos 🥬, veganos 🌱, sin gluten 🌾 o sin lactosa 🥛.
-            Son sugerencias: revísalas (sobre todo sin gluten, por los celíacos) y presiona "Guardar carta".</p>
+            Son sugerencias: revísalas (sobre todo sin gluten, por los celíacos) y presiona "Guardar carta".</p>` : emptyRow('Esta carta está vacía. Agrega platos uno a uno o impórtala abajo.')}
             <div class="adm-form-actions">
                 <button class="adm-btn" data-action="adm-dish-add">＋ Agregar plato</button>
-                <button class="adm-btn" data-action="adm-diet-detect">🤖 Detectar opciones dietéticas</button>
-                <button class="adm-btn primary" data-action="adm-carta-save">Guardar carta</button>
+                ${(local.menu || []).length ? `<button class="adm-btn" data-action="adm-diet-detect">🤖 Detectar opciones dietéticas</button>
+                <button class="adm-btn primary" data-action="adm-carta-save">Guardar carta</button>` : ''}
             </div>
         </section>
 
         <section class="adm-card">
-            <h2>Importar carta pegando texto</h2>
-            <p class="adm-help">Copia la carta desde la web, Instagram o un PDF del local y pégala aquí. Las líneas sin precio se usan como categoría.
-            Más adelante esto se hará con IA desde una foto de la carta.</p>
+            <h2>Importar carta</h2>
+            <p class="adm-help">Sube la carta como <b>PDF, foto, Excel (.xlsx), .csv o .txt</b>, o pega el texto (desde la web, Instagram o un PDF).
+            Las fotos y los PDF escaneados los lee la IA. En el texto, las líneas sin precio se usan como categoría.
+            Siempre podrás revisar y corregir antes de agregar, y no se aceptan platos con el mismo nombre.</p>
+            <div class="adm-form-actions adm-import-file">
+                <label class="adm-btn primary" id="admImportFileBtn">📄 Subir archivo o foto<input type="file" accept=".pdf,.xlsx,.csv,.txt,.md,image/*,application/pdf,text/plain" data-change="adm-import-file" hidden></label>
+                <span class="adm-muted-cell" id="admImportEstado"></span>
+            </div>
             <textarea id="admImportText" rows="7" class="adm-textarea" placeholder="ENTRADAS&#10;Ceviche clásico ...... $9.500&#10;Papa a la huancaína - 5.800&#10;BEBIDAS&#10;Pisco sour 4800"></textarea>
             <div class="adm-form-actions">
                 <span></span>
                 <button class="adm-btn" data-action="adm-import-preview">Revisar antes de importar</button>
             </div>
-            ${importPreview ? `
-                <div class="adm-import-preview">
-                    <p><b>${importPreview.length}</b> platos detectados:</p>
-                    <ul>${importPreview.map(p => `<li>${esc(p.nombre)} <span>${esc(p.categoria)}</span> <b>$${p.precio.toLocaleString('es-CL')}</b></li>`).join('')}</ul>
-                    <div class="adm-form-actions">
-                        <button class="adm-btn ghost" data-action="adm-import-cancel">Cancelar</button>
-                        <button class="adm-btn primary" data-action="adm-import-confirm">Agregar ${importPreview.length} platos</button>
-                    </div>
-                </div>` : ''}
-        </section>`}
+            ${importPreview ? previewHtml(local) : ''}
+        </section>
     `;
 }
 
+/** Lee la tabla de revisión del import (con lo que el administrador corrigió) */
+function readPreview() {
+    return importPreview.map((p, i) => ({
+        ...p,
+        nombre: document.getElementById(`ip_nombre_${i}`)?.value.trim() ?? p.nombre,
+        categoria: document.getElementById(`ip_cat_${i}`)?.value.trim() || 'Otros',
+        precio: Math.max(0, Number(document.getElementById(`ip_precio_${i}`)?.value) || 0),
+        isDrink: document.getElementById(`ip_drink_${i}`)?.checked ?? p.isDrink
+    }));
+}
+
+function mostrarPreview(platos) {
+    importPreview = platos.map(p => ({ ...p, isDrink: p.isDrink ?? esBebida(p.categoria) }));
+    const text = document.getElementById('admImportText')?.value || '';
+    rerender();
+    const area = document.getElementById('admImportText');
+    if (area) area.value = text;
+    document.getElementById('admImportPreview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function readTable(local) {
+    if (!document.getElementById('m_nombre_0')) return [...(local.menu || [])];
     return (local.menu || []).map((m, i) => ({
         ...m,
         nombre: document.getElementById(`m_nombre_${i}`).value.trim(),
@@ -113,7 +206,12 @@ function readTable(local) {
 }
 
 registerActions({
-    'adm-carta-local': el => { localId = Number(el.value); importPreview = null; rerender(); },
+    'adm-carta-buscar': el => {
+        busqueda = el.value;
+        document.getElementById('cartaLocales').innerHTML = filasLocales();
+    },
+    'adm-carta-open': el => { localId = Number(el.dataset.id); importPreview = null; rerender(); window.scrollTo(0, 0); },
+    'adm-carta-back': () => { localId = null; importPreview = null; rerender(); },
     'adm-dish-add': () => {
         const local = getLocal(localId);
         local.menu = readTable(local);
@@ -140,20 +238,80 @@ registerActions({
             toast(`El plato de la fila ${sinNombre + 1} no tiene nombre.`, 'error');
             return document.getElementById(`m_nombre_${sinNombre}`).focus();
         }
+        const vistos = new Map();
+        for (const [i, m] of menu.entries()) {
+            const k = clave(m.nombre);
+            if (vistos.has(k)) {
+                toast(`"${m.nombre}" está dos veces (filas ${vistos.get(k) + 1} y ${i + 1}). Cambia el nombre o elimina una.`, 'error');
+                return document.getElementById(`m_nombre_${i}`).focus();
+            }
+            vistos.set(k, i);
+        }
         local.menu = menu;
         persist();
         toast('Carta guardada');
         rerender();
     },
     'adm-import-preview': () => {
-        importPreview = parseMenuText(document.getElementById('admImportText').value);
-        if (!importPreview.length) {
-            importPreview = null;
-            return toast('No encontré platos con precio en el texto.', 'error');
+        const platos = parseMenuText(document.getElementById('admImportText').value);
+        if (!platos.length) return toast('No encontré platos con precio en el texto.', 'error');
+        mostrarPreview(platos);
+    },
+    'adm-import-file': async el => {
+        const file = el.files?.[0];
+        el.value = '';
+        if (!file) return;
+        const estado = document.getElementById('admImportEstado');
+        const boton = document.getElementById('admImportFileBtn');
+        boton?.classList.add('is-busy');
+        if (estado) estado.textContent = file.type.startsWith('image/') ? '🤖 La IA está leyendo la foto…' : `Leyendo ${file.name}…`;
+        try {
+            const { texto, platos } = await leerArchivoCarta(file);
+            if (texto !== undefined) {
+                document.getElementById('admImportText').value = texto;
+                const encontrados = parseMenuText(texto);
+                if (!encontrados.length) throw new Error('Leí el texto del archivo pero no encontré precios. Revísalo abajo y corrígelo antes de importar.');
+                mostrarPreview(encontrados);
+            } else {
+                mostrarPreview(platos);
+            }
+            toast(`Revisa los platos detectados en ${file.name}`);
+        } catch (err) {
+            if (estado) estado.textContent = '';
+            toast(err.message || 'No se pudo leer el archivo.', 'error');
+        } finally {
+            boton?.classList.remove('is-busy');
         }
-        const text = document.getElementById('admImportText').value;
-        rerender();
-        document.getElementById('admImportText').value = text;
+    },
+    'adm-import-edit': () => {
+        // Revisa repetidos mientras se escribe, sin redibujar (para no perder el foco)
+        const local = getLocal(localId);
+        const actual = readPreview();
+        const problemas = duplicados(actual, local.menu || []);
+        problemas.forEach((p, i) => {
+            const fila = document.getElementById(`ip_nombre_${i}`)?.closest('tr');
+            fila?.classList.toggle('is-dup', !!p);
+            const celda = fila?.querySelector('.adm-dup-cell');
+            if (celda) celda.textContent = p ? `⚠️ ${p}` : '';
+        });
+        const confirmar = document.querySelector('[data-action="adm-import-confirm"]');
+        if (confirmar) confirmar.disabled = problemas.some(Boolean);
+    },
+    'adm-import-remove': el => {
+        const resto = readPreview();
+        resto.splice(Number(el.dataset.index), 1);
+        if (resto.length) mostrarPreview(resto);
+        else { importPreview = null; rerender(); }
+    },
+    'adm-import-dedupe': () => {
+        const local = getLocal(localId);
+        const actual = readPreview();
+        const problemas = duplicados(actual, local.menu || []);
+        const quitados = problemas.filter(Boolean).length;
+        importPreview = actual.filter((_, i) => !problemas[i]);
+        if (!importPreview.length) { importPreview = null; rerender(); return toast('Todos los platos ya estaban en la carta.'); }
+        mostrarPreview(importPreview);
+        toast(`${quitados} plato(s) repetido(s) quitado(s)`);
     },
     'adm-diet-detect': async el => {
         const local = getLocal(localId);
@@ -178,10 +336,13 @@ registerActions({
     'adm-import-cancel': () => { importPreview = null; rerender(); },
     'adm-import-confirm': () => {
         const local = getLocal(localId);
+        const menu = readTable(local);
+        const nuevos = readPreview();
+        if (duplicados(nuevos, menu).some(Boolean)) return toast('Hay platos repetidos o sin nombre. Corrígelos o quítalos primero.', 'error');
         // Los platos nuevos llegan con las opciones dietéticas detectadas
-        local.menu = [...readTable(local), ...importPreview.map(p => ({ ...p, imagen: '', likes: 0, dietas: sugerirDietas(p), isDrink: /bebida|trago|cerveza|vino|jugo|cafe|café/i.test(p.categoria) }))];
+        local.menu = [...menu, ...nuevos.map(p => ({ ...p, imagen: '', likes: 0, dietas: sugerirDietas(p) }))];
         persist();
-        toast(`${importPreview.length} platos agregados`);
+        toast(`${nuevos.length} platos agregados`);
         importPreview = null;
         rerender();
     }

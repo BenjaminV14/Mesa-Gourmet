@@ -1,12 +1,14 @@
-// Mapa de ubicaciones: arrastra el punto de cada local hasta su lugar exacto, o elige un local
+// Mapa de ubicaciones (los mismos puntos que ve el usuario): arrastra el punto de cada local hasta su lugar exacto, o elige un local
 // y toca el mapa para ponerlo ahí. Cada cambio se guarda al soltar y se puede deshacer.
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db, persist, getLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
-import { esc, safeUrl } from '../../utils/html.js';
+import { esc } from '../../utils/html.js';
 import { addBaseLayer, TALCA } from '../../services/tiles.js';
 import { toast } from '../ui.js';
+import { markerIcon, ESTADO_COLOR } from '../../ui/marcador.js';
+import { estadoHorario } from '../../utils/time.js';
 
 let map = null;
 let markers = new Map();
@@ -25,6 +27,13 @@ export function renderMapaAdmin() {
         </div>
         <p class="adm-help">Arrastra el punto de un local hasta su lugar exacto y suéltalo: queda guardado al instante.
         También puedes elegir un local en la lista y tocar el mapa donde corresponde. Acerca el mapa con la rueda del mouse o con dos dedos.</p>
+        <div class="map-legend adm-map-legend">
+            <span><i style="background:${ESTADO_COLOR.abierto}"></i>Abierto</span>
+            <span><i style="background:${ESTADO_COLOR['cierra-pronto']}"></i>Cierra pronto</span>
+            <span><i style="background:${ESTADO_COLOR['abre-pronto']}"></i>Abre pronto</span>
+            <span><i style="background:${ESTADO_COLOR.cerrado}"></i>Cerrado</span>
+            <span>★ Destacado</span>
+        </div>
         <div class="adm-map-layout">
             <aside class="adm-map-list" id="admMapList">${listHtml()}</aside>
             <div class="adm-map-wrap">
@@ -37,19 +46,12 @@ export function renderMapaAdmin() {
 function listHtml() {
     return db.locales.map(l => `
         <button class="adm-map-item ${seleccionado === l.id ? 'is-on' : ''}" data-action="adm-map-select" data-id="${l.id}">
-            <img src="${esc(safeUrl(l.imagen))}" alt="">
+            <i class="adm-map-dot" style="background:${ESTADO_COLOR[estadoHorario(l).codigo]}"></i>
             <span><b>${esc(l.nombre)}</b><small>${EN_CENTRO(l) ? '⚠️ Sin ubicación real' : `${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}`}</small></span>
         </button>`).join('');
 }
 
-function icon(local) {
-    return L.divIcon({
-        className: 'adm-pin-wrap',
-        html: `<span class="adm-pin ${seleccionado === local.id ? 'is-on' : ''}"><img src="${esc(safeUrl(local.imagen))}" alt=""></span>`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 40]
-    });
-}
+const icon = local => markerIcon(local, { activo: seleccionado === local.id });
 
 function initMap() {
     const el = document.getElementById('admMap');
@@ -60,7 +62,7 @@ function initMap() {
     addBaseLayer(map, { avisoSinConexion: 'Mapa simplificado, sin calles: no sirve para ubicar locales con precisión. Abre el panel con internet o pega las coordenadas de Google Maps en "Locales".' });
     db.locales.forEach(local => {
         const m = L.marker([local.lat, local.lng], { draggable: true, icon: icon(local), title: local.nombre, autoPan: true });
-        m.bindTooltip(local.nombre, { direction: 'top', offset: [0, -38] });
+        m.bindTooltip(local.nombre, { direction: 'top', offset: [0, -14] });
         m.on('dragstart', () => select(local.id, false));
         m.on('dragend', () => {
             const { lat, lng } = m.getLatLng();

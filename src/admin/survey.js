@@ -9,7 +9,7 @@ export const CARACTERISTICAS_KEYWORDS = {
     'Baño / WC': ['bano', 'banos', 'wc', 'servicio higienico', 'servicios higienicos'],
     'WiFi Disponible': ['wifi', 'wi fi', 'internet'],
     'Terraza': ['terraza', 'aire libre', 'patio'],
-    'Mascotas (Solo en Terraza)': ['mascota', 'mascotas', 'pet friendly', 'perro'],
+    'Ingreso de Mascotas': ['mascota', 'mascotas', 'pet friendly', 'perro'],
     'Seguridad Completa': ['seguridad', 'guardia', 'camaras'],
     'Calefacción': ['calefaccion', 'estufa', 'calefactor'],
     'Aire Acondicionado / Ventilación': ['aire acondicionado', 'ventilacion', 'climatizado', 'climatizacion'],
@@ -17,7 +17,7 @@ export const CARACTERISTICAS_KEYWORDS = {
     'Estacionamiento': ['estacionamiento', 'estacionamientos', 'parking'],
     'Bicicletero': ['bicicleta', 'bicicletas', 'bicicletero'],
     'Venta de Alcohol': ['alcohol', 'alcoholicas', 'patente de alcohol', 'cerveza', 'vino', 'tragos'],
-    'Apto para Fumadores (Solo en Terraza)': ['fumador', 'fumadores', 'fumar', 'cigarro'],
+    'Apto para Fumadores': ['fumador', 'fumadores', 'fumar', 'cigarro'],
     'Acepta Edenred / BAES': ['edenred', 'baes', 'junaeb', 'cheque restaurant', 'ticket restaurant', 'sodexo', 'pluxee'],
     'Delivery': ['delivery', 'despacho', 'reparto', 'envio a domicilio'],
     'Apto para menores de edad': ['menores de 18', 'menores de edad', 'ninos'],
@@ -68,7 +68,6 @@ export const TARGETS = [
     { id: 'horario', label: 'Horario (toda la semana o por días)', keywords: ['horario', 'horarios', 'hora de atencion', 'atencion al publico'] },
     ...DIAS.map((d, i) => ({ id: `horario:${i}`, label: `Horario del ${d.toLowerCase()}`, keywords: [`horario ${normalize(d)}`, `${normalize(d)}`] })),
     ...Object.entries(CARACTERISTICAS_KEYWORDS).map(([c, keywords]) => ({ id: `car:${c}`, label: `Característica: ${c}`, keywords })),
-    { id: 'car:Ingreso de Mascotas', label: 'Característica: Ingreso de Mascotas (en todo el local)', keywords: [] },
     // Característica con detalle: "Sí, clave: carlota123" -> WiFi + muestra la clave al tocarla
     { id: 'det:WiFi Disponible', label: 'WiFi + clave (detalle)', keywords: ['clave del wifi', 'contrasena del wifi', 'clave wifi'] },
     { id: 'det:Delivery', label: 'Delivery + con qué empresas (detalle)', keywords: ['empresa de delivery'] },
@@ -351,14 +350,15 @@ export function planImport(responses, mapping, locales) {
                 let car = target.slice(4);
                 const yn = parseYesNo(valor);
                 const n = normalize(texto);
-                // "Sí, pero solo en terraza" / "Sí, en todo el local"
-                if (car.startsWith('Mascotas') && yn && !/terraza|afuera|exterior/.test(n) && /todo|interior|adentro|pet friendly/.test(n)) car = 'Ingreso de Mascotas';
+                // "Sí, pero solo en terraza" -> la característica con el detalle "Solo en la terraza"
+                const soloTerraza = /terraza|afuera|exterior/.test(n) && !/todo|interior|adentro/.test(n);
                 // Otra característica mencionada en la respuesta ("calefacción por gas" en la pregunta del aire acondicionado)
                 const otra = Object.keys(CARACTERISTICAS_KEYWORDS).find(c => c !== car && CARACTERISTICAS_KEYWORDS[c].some(k => containsWord(n, normalize(k))));
                 if (yn === true) {
                     agregar.add(car);
                     const extra = texto.replace(/^(s[ií]|yes|x)\s*[,.:;-]?\s*/i, '').trim();
-                    if (detalleUtil(extra)) detalles[car] = capitalizar(extra);
+                    if (soloTerraza) detalles[car] = 'Solo en la terraza';
+                    else if (detalleUtil(extra)) detalles[car] = capitalizar(extra);
                 }
                 // "No, pero en la terraza se puede": sí, con esa aclaración
                 else if (/^no,? pero .*(se puede|puede|terraza)/.test(n)) {
@@ -370,7 +370,10 @@ export function planImport(responses, mapping, locales) {
                     // "No (solo en caso de urgencia)" se guarda como aviso para que decidas
                     if (/\(|solo|pero/.test(n)) avisos.push(`"${car}": respondieron "${texto.slice(0, 50)}". Se marcó como que no tiene.`);
                 }
-                else if (/terraza|afuera|exterior/.test(n) && (car.startsWith('Mascotas') || car.startsWith('Apto para Fumadores'))) agregar.add(car);
+                else if (soloTerraza && (car === 'Ingreso de Mascotas' || car === 'Apto para Fumadores')) {
+                    agregar.add(car);
+                    detalles[car] = 'Solo en la terraza';
+                }
                 else if ((CARACTERISTICAS_KEYWORDS[car] || []).some(k => containsWord(n, normalize(k)))) {
                     agregar.add(car);
                     detalles[car] = capitalizar(texto);

@@ -199,16 +199,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .adm-map-list { display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 220px); overflow-y: auto; }
 .adm-map-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; border: 1px solid var(--adm-line); background: var(--adm-surface); cursor: pointer; text-align: left; }
 .adm-map-item.is-on { border-color: var(--adm-wine); background: var(--adm-wine-soft); }
-.adm-map-item img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; }
 .adm-map-item span { display: flex; flex-direction: column; min-width: 0; }
 .adm-map-item small { color: var(--adm-muted); font-size: 0.76rem; }
 .adm-map-wrap { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--adm-line); }
 .adm-map { height: calc(100vh - 220px); min-height: 420px; }
 .adm-map-hint { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 500; background: var(--adm-surface); border: 1px solid var(--adm-wine); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 0.9rem; box-shadow: 0 6px 20px rgba(0,0,0,.15); }
-.adm-pin-wrap { background: none; border: none; }
-.adm-pin { display: block; width: 40px; height: 40px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--adm-wine); border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,.35); overflow: hidden; cursor: grab; }
-.adm-pin img { width: 100%; height: 100%; object-fit: cover; transform: rotate(45deg) scale(1.3); }
-.adm-pin.is-on { background: var(--adm-gold); border-color: var(--adm-gold); }
+/* Mismos puntos que el mapa de la app (src/ui/marcador.js) */
+.mg-marker-wrap { background: none; border: none; }
+.mg-marker { display: block; width: 22px; height: 22px; border-radius: 50%; background: var(--c); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); cursor: grab; transition: transform .15s; }
+.mg-marker-star { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: #f5c542; color: #7a4d00; font-size: 20px; line-height: 1; border: 3px solid var(--c); }
+.mg-marker.is-active { transform: scale(1.35); box-shadow: 0 0 0 5px rgba(230, 180, 34, .55), 0 2px 8px rgba(0,0,0,.5); }
+.leaflet-dragging .mg-marker { cursor: grabbing; }
+.adm-map-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 10px; font-size: .8rem; color: var(--adm-muted); }
+.adm-map-legend i, .adm-map-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; vertical-align: middle; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2); flex-shrink: 0; }
 .adm-undo { margin-left: 10px; background: none; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 2px 8px; cursor: pointer; font-weight: 700; }
 .adm-toast:has(.adm-undo) { display: flex; align-items: center; }
 @media (max-width: 800px) {
@@ -287,3 +290,81 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .mapa-reintentar { margin-top: 6px; padding: 4px 10px; border-radius: 8px; border: 1px solid #f2c94c; background: transparent; color: #f2c94c; font: 700 11px var(--adm-font); cursor: pointer; }
 .adm-login { max-width: 460px; }
 .adm-login code { display: block; margin: 6px 0; padding: 8px; border-radius: 8px; background: var(--adm-bg); font-size: 0.8rem; overflow-wrap: anywhere; }
+.adm-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.adm-two .adm-card { margin-bottom: 0; }
+.adm-list.is-past { opacity: 0.6; margin-top: 8px; }
+.adm-field select { padding: 9px 11px; border-radius: 9px; border: 1px solid var(--adm-line); background: var(--adm-bg); color: var(--adm-ink); font-size: 0.95rem; max-width: none; width: 100%; }
+.adm-sponsor-table .adm-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.adm-actions-col { text-align: right; }
+.adm-numero { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-weight: 600; }
+.adm-numero input { width: 90px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--adm-line); background: var(--adm-bg); color: var(--adm-ink); font-size: 1.1rem; }
+/* Formularios parejos: cada campo ocupa todo su espacio y las filas tienen dos columnas iguales */
+.adm-field input, .adm-field textarea, .adm-field select { width: 100%; box-sizing: border-box; min-width: 0; }
+.adm-form .adm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.adm-form .adm-grid.hours { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+@media (min-width: 1100px) { .adm-form .adm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .adm-form .adm-grid { grid-template-columns: minmax(0, 1fr); } }
+.adm-logo-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.adm-logo-row img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; border: 1px solid var(--adm-line); }
+
+/* Cartas: lista de locales y revisión del import */
+.adm-carta-locales li { align-items: center; }
+.adm-carta-local { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 0; min-width: 0; }
+.adm-carta-local small { color: var(--adm-muted); font-size: .8rem; }
+.adm-import-preview .adm-table-wrap { max-height: 420px; overflow-y: auto; }
+.adm-import-preview tr.is-dup td { background: rgba(239, 68, 68, .09); }
+.adm-dup-cell { color: #dc2626; font-size: .78rem; white-space: nowrap; }
+.adm-import-file { justify-content: flex-start; gap: 12px; margin-bottom: 10px; }
+.adm-btn.is-busy { opacity: .6; pointer-events: none; }
+
+/* Encuesta: dato actual de la app y local nuevo */
+.adm-q-app { margin: 6px 0 0; font-size: .78rem; color: var(--adm-muted); }
+.adm-q-app b { color: var(--adm-ink); font-weight: 600; }
+.adm-new-local { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 12px; padding: 14px; border-radius: 12px; background: var(--adm-bg); border: 1px dashed var(--adm-line); }
+.adm-new-local .adm-field { flex: 1 1 260px; margin: 0; }
+
+/* Carpetas plegables (Top y clientes) */
+.adm-folders { display: flex; flex-direction: column; gap: 8px; }
+.adm-folder { border: 1px solid var(--adm-line); border-radius: 12px; background: var(--adm-surface); }
+.adm-folder summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; list-style: none; }
+.adm-folder summary::-webkit-details-marker { display: none; }
+.adm-folder summary::after { content: '▸'; margin-left: auto; color: var(--adm-muted); }
+.adm-folder[open] summary::after { content: '▾'; }
+.adm-folder[open] .adm-folder-icon { filter: saturate(1.4); }
+.adm-folder-meta { color: var(--adm-muted); font-size: .82rem; }
+.adm-folder > :not(summary), .adm-card .adm-folder > .adm-table-wrap { margin: 0 14px 14px; }
+.adm-kpi.adm-kpi-inline { display: inline-flex; flex-direction: column; align-items: flex-end; padding: 8px 14px; min-width: 0; }
+
+/* Reportes para locales */
+.adm-delta { font-size: .76rem; color: var(--adm-muted); }
+.adm-delta.up { color: var(--adm-ok); }
+.adm-delta.down { color: var(--adm-danger); }
+.adm-report .adm-kpis { margin-bottom: 6px; }
+.adm-trend { margin: 18px 0 6px; }
+.adm-trend figcaption { font-size: .82rem; color: var(--adm-muted); margin-bottom: 8px; }
+.adm-trend-bars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; height: 150px; align-items: end; border-bottom: 1px solid var(--adm-line); }
+.adm-trend-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.adm-trend-bar { width: min(28px, 70%); background: var(--adm-wine); border-radius: 4px 4px 0 0; }
+.adm-trend-col:hover .adm-trend-bar { filter: brightness(1.2); }
+.adm-trend-val { font-size: .78rem; font-variant-numeric: tabular-nums; color: var(--adm-ink); min-height: 1em; }
+.adm-trend-mes { font-size: .74rem; color: var(--adm-muted); position: relative; top: 20px; height: 0; }
+.adm-trend { padding-bottom: 30px; }
+.adm-trend-vacio { margin-top: 16px; }
+.adm-hidden-text { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+@media print {
+    .adm-sidebar, .adm-no-print, #admNav, .adm-demo-note, .adm-title, .adm-main > .adm-help { display: none !important; }
+    .adm-report { border: none; box-shadow: none; }
+    body { background: #fff; }
+}
+
+/* Asistente y manual de decisiones */
+.adm-attention li small { display: block; font-size: .8rem; margin-top: 2px; }
+.adm-attention .adm-row-actions { flex-wrap: wrap; justify-content: flex-end; }
+.adm-manual li { align-items: center; flex-wrap: wrap; }
+.adm-manual .adm-row-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.adm-card > .adm-folder { margin-top: 12px; }
+@media (max-width: 640px) {
+    .adm-attention li { flex-wrap: wrap; }
+    .adm-attention li span:nth-child(2) { flex: 1 1 calc(100% - 40px); }
+}
+.adm-card .adm-import-preview .adm-table-wrap { margin: 0 -14px; }

@@ -1,0 +1,60 @@
+# Publica las funciones de IA en Supabase (revisar fotos, leer cartas, opciones dietéticas).
+# Se ejecuta sola cuando cambia algo en supabase/functions, o a mano desde la pestaña Actions.
+#
+# Necesita dos secretos en GitHub > Settings > Secrets and variables > Actions:
+#   SUPABASE_ACCESS_TOKEN  token personal de Supabase (supabase.com/dashboard/account/tokens)
+#   ANTHROPIC_API_KEY      clave de la API de Claude (console.anthropic.com > API Keys)
+name: Publicar funciones de IA
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/functions/**', '.github/workflows/funciones.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROYECTO: gaguteunateuwebyeaax
+
+jobs:
+  funciones:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Revisar secretos
+        id: secretos
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::Falta el secreto SUPABASE_ACCESS_TOKEN: las funciones de IA no se publicaron."
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=si" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.secretos.outputs.listo == 'si'
+      - uses: supabase/setup-cli@v1
+        if: steps.secretos.outputs.listo == 'si'
+        with:
+          version: latest
+      - name: Guardar la clave de Claude en Supabase
+        if: steps.secretos.outputs.listo == 'si'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            supabase secrets set --project-ref "$PROYECTO" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
+          else
+            echo "::warning::Falta el secreto ANTHROPIC_API_KEY: las funciones se publican, pero la IA no responderá hasta agregarlo."
+          fi
+      - name: Publicar funciones
+        if: steps.secretos.outputs.listo == 'si'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          for f in verificar-foto analizar-carta leer-carta; do
+            supabase functions deploy "$f" --project-ref "$PROYECTO" --use-api
+          done

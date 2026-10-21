@@ -1,7 +1,8 @@
 // Detecta en la carta qué platos son vegetarianos, veganos, sin gluten o sin lactosa.
-// Con el servidor conectado lo hace la IA (función "analizar-carta"); sin servidor, usa reglas por
+// Con el servidor conectado (en línea) lo hace la IA (función "analizar-carta"); sin servidor, usa reglas por
 // ingredientes comunes. En ambos casos son sugerencias que el administrador revisa antes de guardar.
 import { normalize } from '../utils/text.js';
+import { supabase, remoto } from './supabase.js';
 
 const ANALIZAR_URL = import.meta.env?.VITE_MENU_DIET_URL;
 
@@ -43,15 +44,20 @@ export function sugerirDietas({ nombre = '', descripcion = '' }) {
  * Usa la IA si está conectada; si falla o no hay servidor, usa las reglas.
  */
 export async function analizarDietasCarta(platos) {
-    if (ANALIZAR_URL) {
+    if (remoto || ANALIZAR_URL) {
         try {
-            const response = await fetch(ANALIZAR_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ platos: platos.map(p => ({ nombre: p.nombre, categoria: p.categoria, descripcion: p.descripcion })) })
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const { platos: resultado } = await response.json();
+            const body = { platos: platos.map(p => ({ nombre: p.nombre, categoria: p.categoria, descripcion: p.descripcion })) };
+            let resultado;
+            if (remoto) {
+                // En línea se llama a la función de Supabase con la sesión del administrador
+                const { data, error } = await supabase.functions.invoke('analizar-carta', { body });
+                if (error) throw error;
+                resultado = data.platos;
+            } else {
+                const response = await fetch(ANALIZAR_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                ({ platos: resultado } = await response.json());
+            }
             return platos.map((p, i) => {
                 const r = resultado.find(x => x.indice === i);
                 return r ? { dietas: r.dietas, dudoso: r.dudoso, nota: r.nota, origen: 'ia' } : { dietas: sugerirDietas(p), dudoso: true, nota: '', origen: 'reglas' };

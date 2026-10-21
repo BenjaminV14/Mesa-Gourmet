@@ -143,9 +143,26 @@ export function cerrarMes(date = new Date()) {
         const d = distincionesActuales(l.id, date).map(x => x.texto);
         if (d.length) distinciones[l.id] = d;
     });
+    // Clientes de cada local en el mes: con 5 visitas o más quedan como VIP para el mes siguiente
+    const clientes = {};
+    db.locales.forEach(l => {
+        const lista = topClientes(l.id, date).map(c => ({ id: c.usuario.id, nombre: c.usuario.nombre, username: c.usuario.username, visitas: c.visitas, vip: c.esClienteDelMes }));
+        if (lista.length) clientes[l.id] = lista;
+    });
     db.cierres = (db.cierres || []).filter(c => c.mes !== mes);
-    db.cierres.push({ mes, fecha: date.toISOString(), distinciones });
+    db.cierres.push({ mes, fecha: date.toISOString(), distinciones, clientes });
     return { mes, total: Object.values(distinciones).flat().length };
+}
+
+/**
+ * Respaldo del cierre automático: si el mes pasado quedó sin cerrar (en línea lo cierra el servidor
+ * el último día a las 23:59), se cierra al abrir el panel con los datos de ese mes.
+ */
+export function cerrarMesPendiente(hoy = new Date()) {
+    const fin = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59);
+    const mes = `${MESES[fin.getMonth()]} ${fin.getFullYear()}`;
+    if ((db.cierres || []).some(c => c.mes === mes) || !db.reviews.length) return null;
+    return cerrarMes(fin);
 }
 
 // =================== CLIENTES FRECUENTES ===================
@@ -180,13 +197,19 @@ export function topClientes(localId, date = new Date(), limite = 50) {
 const mesAnterior = date => new Date(date.getFullYear(), date.getMonth() - 1, 15);
 
 /**
- * Clientes VIP vigentes de un local: quienes fueron cliente del mes (5 visitas o más) el mes pasado,
- * reconocidos durante todo este mes, más quienes ya llegaron a 5 visitas en el mes actual.
+ * Clientes VIP vigentes de un local: el título se asigna al cerrar el mes (el último día a las 23:59).
+ * Quienes fueron 5 veces o más el mes pasado son VIP durante todo este mes.
+ * Mientras no exista el cierre del mes pasado, se calcula igual que lo haría el cierre.
  */
 export function vipsDeLocal(localId, date = new Date()) {
-    const pasado = topClientes(localId, mesAnterior(date)).filter(c => c.esClienteDelMes).map(c => ({ ...c, mes: MESES[mesAnterior(date).getMonth()] }));
-    const actual = topClientes(localId, date).filter(c => c.esClienteDelMes && !pasado.some(p => p.usuario.id === c.usuario.id)).map(c => ({ ...c, mes: MESES[date.getMonth()] }));
-    return [...pasado, ...actual];
+    const pasado = mesAnterior(date);
+    const etiqueta = `${MESES[pasado.getMonth()]} ${pasado.getFullYear()}`;
+    const cierre = (db.cierres || []).find(c => c.mes === etiqueta);
+    if (cierre?.clientes) {
+        return (cierre.clientes[localId] || []).filter(c => c.vip)
+            .map(c => ({ usuario: { id: c.id, nombre: c.nombre, username: c.username }, visitas: c.visitas, mes: MESES[pasado.getMonth()] }));
+    }
+    return topClientes(localId, pasado).filter(c => c.esClienteDelMes).map(c => ({ ...c, mes: MESES[pasado.getMonth()] }));
 }
 
 /** Locales donde una persona es cliente VIP ahora */

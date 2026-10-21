@@ -33,8 +33,8 @@ export function activeFilterCount(f = state.filtros) {
 }
 
 function tieneCaracteristica(local, nombre) {
-    // "Mascotas" y "Apto para Fumadores" cubren las variantes (solo terraza / todo el local)
-    return (local.caracteristicas || []).some(c => c === nombre || c.startsWith(nombre));
+    // "Mascotas" corresponde a "Ingreso de Mascotas"
+    return (local.caracteristicas || []).some(c => c === nombre || c.startsWith(nombre) || c.endsWith(nombre));
 }
 
 export function cumpleFiltros(local, f = state.filtros) {

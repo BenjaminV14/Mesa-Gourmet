@@ -12,7 +12,7 @@ import { registerActions } from '../ui/actions.js';
 import { estadoBadge, emptyState } from '../ui/cards.js';
 import { showToast } from '../ui/feedback.js';
 import { esc, safeUrl } from '../utils/html.js';
-import { estadoHorario, estaAbierto, formatFechaEvento } from '../utils/time.js';
+import { estadoHorario, estaAbierto, formatFechaEvento, promoVigente } from '../utils/time.js';
 import { formatDistance } from '../utils/geo.js';
 import { isSponsored, distanceTo } from './sponsors.js';
 import { search } from './search.js';
@@ -21,13 +21,13 @@ import { track } from '../services/analytics.js';
 import { addBaseLayer } from '../services/tiles.js';
 import { notaActual, dietaLocal } from '../data/metrics.js';
 import { scrollRow, actualizarFlechas } from '../ui/scroll-row.js';
+import { markerIcon, ESTADO_COLOR } from '../ui/marcador.js';
 
 let map = null;
 let markersLayer = null;
 let userMarker = null;
 let currentFilter = 'todos';
 
-const ESTADO_COLOR = { abierto: '#10b981', 'cierra-pronto': '#f59e0b', 'abre-pronto': '#3b82f6', cerrado: '#ef4444' };
 
 export function renderMapa() {
     const main = document.getElementById('mainContent');
@@ -96,20 +96,6 @@ function visibleLocales() {
     });
 }
 
-function markerIcon(local) {
-    const estado = estadoHorario(local).codigo;
-    const color = ESTADO_COLOR[estado];
-    const sponsored = isSponsored(local);
-    return L.divIcon({
-        className: 'mg-marker-wrap',
-        html: sponsored
-            ? `<span class="mg-marker mg-marker-star" style="--c:${color}">★</span>`
-            : `<span class="mg-marker" style="--c:${color}"></span>`,
-        iconSize: sponsored ? [34, 34] : [22, 22],
-        iconAnchor: sponsored ? [17, 17] : [11, 11]
-    });
-}
-
 function drawMarkers(fit = false) {
     if (!map || !markersLayer) return;
     markersLayer.clearLayers();
@@ -159,7 +145,7 @@ function showPreview(localId) {
             <p>${notaActual(local.id).total ? notaActual(local.id).total.toFixed(1) + ' ★ · ' : ''}${esc(local.tipo)} · ${esc(formatDistance(distanceTo(local)))}</p>
             <div class="map-preview-actions">
                 <button class="btn btn-primary" data-action="open-local" data-id="${local.id}">Ver ficha</button>
-                <a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}" target="_blank" rel="noopener">Cómo llegar</a>
+                <a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}" target="_blank" rel="noopener" data-metrica="como_llegar" data-local="${local.id}">Cómo llegar</a>
             </div>
         </div>
     `;
@@ -191,7 +177,7 @@ function renderEventsPane() {
     const eventos = db.locales.flatMap(local => (local.eventos || []).map(e => ({ ...e, local })))
         .filter(e => new Date(e.inicio).getTime() > ahora - 3 * 3600000)
         .sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
-    const promosHoy = db.locales.flatMap(local => (local.promociones || []).filter(p => (p.dias || []).includes(hoy)).map(p => ({ ...p, local })));
+    const promosHoy = db.locales.flatMap(local => (local.promociones || []).filter(p => (p.dias || []).includes(hoy) && promoVigente(p)).map(p => ({ ...p, local })));
 
     pane.innerHTML = `
         <h3 class="subsection-title">Próximos eventos</h3>

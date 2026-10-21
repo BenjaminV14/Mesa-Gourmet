@@ -7,6 +7,7 @@
 import { supabase, remoto } from '../services/supabase.js';
 import { db, registrarSincronizacion } from './store.js';
 import { state, normalizeUser } from '../state.js';
+import { normalizarCaracteristicas } from './caracteristicas.js';
 
 const FOTOS = 'fotos-resenas';
 const VIDEOS = 'videos';
@@ -57,7 +58,8 @@ function localDesdeFila(l, extra) {
         eventos: extra.eventos.filter(e => e.local_id === l.id).map(e => ({ id: String(e.id), titulo: e.titulo, inicio: e.inicio, descripcion: e.descripcion || '' })),
         promociones: extra.promociones.filter(p => p.local_id === l.id).map(p => ({
             descripcion: p.descripcion, icono: p.icono || '🏷️', metodo: p.metodo || '', dias: p.dias || [],
-            horaInicio: (p.hora_inicio || '').slice(0, 5), horaFin: (p.hora_fin || '').slice(0, 5)
+            horaInicio: (p.hora_inicio || '').slice(0, 5), horaFin: (p.hora_fin || '').slice(0, 5),
+            desde: p.desde || '', hasta: p.hasta || ''
         })),
         patrocinio: ultimo ? {
             plan: ultimo.plan, precio: ultimo.precio, desde: ultimo.desde, hasta: ultimo.hasta, pagado: ultimo.pagado,
@@ -110,8 +112,19 @@ export async function cargarTodo({ admin = false } = {}) {
         conCuenta(supabase.from('video_likes').select('video_id').eq('usuario_id', uid)),
         lista(supabase.from('cierres_mes').select('*'))
     ]);
-    let reportes = [], moderacion = [], encuestas = [], preguntas = [];
+    let reportes = [], moderacion = [], encuestas = [], preguntas = [], metricas = [], favoritos = [], quiero = [], decisiones = [], reglas = [], perfiles = [];
     if (admin) {
+        // Tablas de la actualización 2: si aún no se ejecuta, el panel funciona igual sin ellas
+        const opcional = consulta => lista(consulta).catch(() => []);
+        const desde = new Date(Date.now() - 400 * 86400000).toISOString();
+        [metricas, favoritos, quiero, decisiones, reglas, perfiles] = await Promise.all([
+            opcional(supabase.from('metricas_locales').select('local_id, tipo, usuario_id, creado_at').gte('creado_at', desde).limit(50000)),
+            opcional(supabase.from('favoritos').select('local_id, usuario_id, creado_at')),
+            opcional(supabase.from('quiero_ir').select('local_id, usuario_id, creado_at')),
+            opcional(supabase.from('decisiones_admin').select('*').order('creado_at', { ascending: false }).limit(2000)),
+            opcional(supabase.from('reglas_admin').select('*')),
+            opcional(supabase.from('perfiles').select('id, nombre, username, avatar_url, rol, creado_at').order('creado_at', { ascending: false }))
+        ]);
         [reportes, moderacion, encuestas, preguntas] = await Promise.all([
             lista(supabase.from('reportes').select('*, autor:perfiles!reportes_usuario_id_fkey(id, nombre)').order('creado_at', { ascending: false })),
             lista(supabase.from('moderacion').select('*').eq('resuelto', false)),
@@ -125,10 +138,18 @@ export async function cargarTodo({ admin = false } = {}) {
     const misFotoLikes = new Set(fLikes.map(x => x.foto_id));
     const misVideoLikes = new Set(vLikes.map(x => x.video_id));
 
-    db.locales = locales.map(l => localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal }));
+    db.locales = locales.map(l => normalizarCaracteristicas(localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal })));
     db.reviews = resenas.map(r => resenaDesdeFila(r, misLikes, misFotoLikes, uid));
     db.videos = videos.map(v => videoDesdeFila(v, misVideoLikes, uid));
-    db.cierres = cierres.map(c => ({ mes: c.mes, fecha: c.creado_at, distinciones: c.distinciones || {} }));
+    db.cierres = cierres.map(c => ({ mes: c.mes, fecha: c.creado_at, distinciones: c.distinciones || {}, clientes: c.clientes || null }));
+    if (admin) {
+        db.metricas = metricas.map(m => ({ localId: m.local_id, tipo: m.tipo, usuarioId: m.usuario_id, fecha: m.creado_at }));
+        db.favoritosLocales = favoritos.map(f => ({ localId: f.local_id, usuarioId: f.usuario_id, fecha: f.creado_at }));
+        db.quieroIrLocales = quiero.map(f => ({ localId: f.local_id, usuarioId: f.usuario_id, fecha: f.creado_at }));
+        db.decisiones = decisiones.map(d => ({ id: `dec-${d.id}`, tipo: d.tipo, caso: d.caso, decision: d.decision, nota: d.nota, fecha: d.creado_at }));
+        db.reglas = Object.fromEntries(reglas.map(r => [r.tipo, { decision: r.decision, automatico: r.automatico, nota: r.nota || '' }]));
+        db.usuarios = perfiles.map(p => ({ id: p.id, nombre: p.nombre, username: p.username, avatarUrl: p.avatar_url, rol: p.rol, creado: p.creado_at }));
+    }
     db.reports = reportes.map(r => ({
         id: r.id, tipo: r.tipo, localId: r.local_id, reviewId: r.resena_id, detalle: r.detalle || '', estado: r.estado,
         fecha: r.creado_at, usuario: { id: r.usuario_id, nombre: r.autor?.nombre || 'Usuario' }
@@ -270,7 +291,7 @@ const platosDe = l => (l.menu || []).filter(m => m.nombre).map((m, i) => ({
 const eventosDe = l => (l.eventos || []).map(e => ({ local_id: l.id, titulo: e.titulo, inicio: e.inicio, descripcion: e.descripcion || null }));
 const promosDe = l => (l.promociones || []).map(p => ({
     local_id: l.id, descripcion: p.descripcion, icono: p.icono || '🏷️', metodo: p.metodo || null, dias: p.dias || [],
-    hora_inicio: p.horaInicio || null, hora_fin: p.horaFin || null
+    hora_inicio: p.horaInicio || null, hora_fin: p.horaFin || null, desde: p.desde || null, hasta: p.hasta || null
 }));
 const patrociniosDe = l => !l.patrocinio ? [] : [
     { local_id: l.id, plan: l.patrocinio.plan, precio: l.patrocinio.precio, desde: l.patrocinio.desde, hasta: l.patrocinio.hasta, pagado: !!l.patrocinio.pagado },
@@ -295,7 +316,9 @@ function tomarFoto() {
         reportes: new Map(db.reports.map(r => [r.id, r.estado])),
         moderacion: new Map(db.moderation.map(m => [m.id, m])),
         preguntas: JSON.stringify(db.encuesta?.preguntas || null),
-        cierres: new Set((db.cierres || []).map(c => c.mes))
+        cierres: new Set((db.cierres || []).map(c => c.mes)),
+        decisiones: new Set((db.decisiones || []).map(d => d.id)),
+        reglas: JSON.stringify(db.reglas || {})
     };
 }
 
@@ -389,6 +412,12 @@ async function sincronizarDatos() {
         // Locales y todo lo que cuelga de ellos
         for (const l of db.locales) {
             const id = l.id;
+            if (l.imagen?.startsWith('data:')) {
+                // Logo subido desde el panel: se guarda como archivo y la ficha queda con su dirección
+                const path = await subirImagen(FOTOS, `${uid}/locales/${id}-${Date.now()}.jpg`, l.imagen);
+                l.imagen = urlPublica(FOTOS, path);
+                ahora.locales.set(id, JSON.stringify(filaDeLocal(l)));
+            }
             if (ahora.locales.get(id) !== foto.locales.get(id)) {
                 const { error } = await supabase.from('locales').upsert(filaDeLocal(l));
                 if (error) throw error;
@@ -437,9 +466,25 @@ async function sincronizarDatos() {
             const { error } = await supabase.from('encuesta_preguntas').insert(db.encuesta.preguntas.map((p, i) => ({ id: p.id, seccion: p.seccion, texto: p.texto, uso: p.uso, sugerencia: p.sugerencia || null, orden: i })));
             if (error) throw error;
         }
+        // Manual de decisiones: lo que resuelves queda anotado para que la IA lo repita
+        for (const d of db.decisiones || []) {
+            if (foto.decisiones.has(d.id)) continue;
+            const { data, error } = await supabase.from('decisiones_admin').insert({ tipo: d.tipo, caso: d.caso || null, decision: d.decision, nota: d.nota || null }).select('id').single();
+            if (error) throw error;
+            d.id = `dec-${data.id}`;
+        }
+        if (ahora.reglas !== foto.reglas) {
+            const antes = JSON.parse(foto.reglas);
+            for (const [tipo, regla] of Object.entries(db.reglas || {})) {
+                if (JSON.stringify(antes[tipo]) === JSON.stringify(regla)) continue;
+                const { error } = await supabase.from('reglas_admin').upsert({ tipo, decision: regla.decision, automatico: !!regla.automatico, nota: regla.nota || null, actualizado_at: new Date().toISOString() });
+                if (error) throw error;
+            }
+            for (const tipo of Object.keys(antes)) if (!(tipo in (db.reglas || {}))) await supabase.from('reglas_admin').delete().eq('tipo', tipo);
+        }
         for (const c of db.cierres || []) {
             if (!foto.cierres.has(c.mes)) {
-                const { error } = await supabase.from('cierres_mes').upsert({ mes: c.mes, distinciones: c.distinciones });
+                const { error } = await supabase.from('cierres_mes').upsert({ mes: c.mes, distinciones: c.distinciones, ...(c.clientes ? { clientes: c.clientes } : {}) });
                 if (error) throw error;
             }
         }

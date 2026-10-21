@@ -15,6 +15,7 @@
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",
     "leaflet": "^1.9.4",
+    "pdfjs-dist": "4.10.38",
     "read-excel-file": "9.3.10"
   }
 }

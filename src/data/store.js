@@ -51,6 +51,11 @@ export function registrarSincronizacion(fns) {
     sincronizar = fns;
 }
 
+/** Guarda en el navegador sin enviar nada al servidor (métricas de la demo) */
+export function guardarLocal() {
+    writeJson(STORAGE_KEY, db);
+}
+
 export function persist() {
     writeJson(STORAGE_KEY, db);
     sincronizar?.datos();

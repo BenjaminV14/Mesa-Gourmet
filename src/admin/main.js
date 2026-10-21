@@ -1,8 +1,11 @@
 // Panel de administración de Mesa Gourmet
 import './admin.css';
-import { db } from '../data/store.js';
+import { db, persist } from '../data/store.js';
+import { cerrarMesPendiente } from '../data/metrics.js';
 import { registerActions } from '../ui/actions.js';
-import { renderResumen } from './views/resumen.js';
+import { renderResumen, setResumenRerender } from './views/resumen.js';
+import { aplicarReglasAutomaticas } from './moderar.js';
+import { toast } from './ui.js';
 import { renderLocales, setLocalesRerender, editLocal } from './views/locales.js';
 import { renderCartas, setCartasRerender, selectCartaLocal } from './views/cartas.js';
 import { renderPatrocinios, setPatrociniosRerender } from './views/patrocinios.js';
@@ -13,6 +16,7 @@ import { renderUsuarios, setUsuariosRerender } from './views/usuarios.js';
 import { renderEncuesta, setEncuestaRerender } from './views/encuesta.js';
 import { renderMapaAdmin } from './views/mapa.js';
 import { renderMetricas, setMetricasRerender } from './views/metricas.js';
+import { renderCrecimiento, setCrecimientoRerender } from './views/crecimiento.js';
 import { nuevosVip } from './vip.js';
 import { remoto } from '../services/supabase.js';
 import { iniciarAdminEnLinea } from './acceso.js';
@@ -28,6 +32,7 @@ const VIEWS = {
     moderacion: { label: 'Moderación', icon: '🛡️', render: renderModeracion, badge: () => db.reviews.filter(r => r.estado === 'pendiente').length + db.moderation.length + db.videos.filter(v => v.estado === 'pendiente').length + db.reports.filter(r => r.tipo === 'resena' && r.estado === 'abierto').length },
     reportes: { label: 'Reportes', icon: '⚠️', render: renderReportes, badge: () => db.reports.filter(r => r.tipo !== 'resena' && r.estado === 'abierto').length },
     metricas: { label: 'Top y clientes', icon: '🏆', render: renderMetricas, badge: () => nuevosVip().length },
+    crecimiento: { label: 'Reportes para locales', icon: '📈', render: renderCrecimiento },
     usuarios: { label: 'Usuarios y datos', icon: '👥', render: renderUsuarios }
 };
 
@@ -40,6 +45,12 @@ function renderNav() {
             <span class="adm-nav-icon">${v.icon}</span><span>${v.label}</span>${count ? `<span class="adm-badge">${count}</span>` : ''}
         </button>`;
     }).join('');
+}
+
+// Las reglas automáticas del manual resuelven solas los casos nuevos
+function reglasAutomaticas() {
+    const n = aplicarReglasAutomaticas();
+    if (n) toast(`🤖 ${n} caso(s) resuelto(s) solos con tus reglas automáticas`);
 }
 
 function render() {
@@ -58,7 +69,7 @@ function go(view, localId = null) {
     window.scrollTo(0, 0);
 }
 
-[setLocalesRerender, setCartasRerender, setEncuestaRerender, setPatrociniosRerender, setEventosRerender, setModeracionRerender, setUsuariosRerender, setMetricasRerender]
+[setResumenRerender, setLocalesRerender, setCartasRerender, setEncuestaRerender, setPatrociniosRerender, setEventosRerender, setModeracionRerender, setUsuariosRerender, setMetricasRerender, setCrecimientoRerender]
     .forEach(set => set(render));
 setReportesHandlers(render, go);
 
@@ -76,11 +87,19 @@ window.addEventListener('hashchange', () => {
 // Si la app cambia los datos en otra pestaña (por ejemplo, llega una reseña), se refresca el panel
 // (no se redibuja mientras escribes en un formulario, para no perder lo que estás escribiendo)
 window.addEventListener('mg:data-changed', () => {
+    reglasAutomaticas();
     const activo = document.activeElement;
     if (activo && activo.closest('#admMain') && /INPUT|TEXTAREA|SELECT/.test(activo.tagName)) renderNav();
     else render();
 });
 
 // En línea hay que ingresar con la cuenta de administrador; en la demo se entra directo
-if (remoto) iniciarAdminEnLinea(render);
-else render();
+if (remoto) iniciarAdminEnLinea(() => { reglasAutomaticas(); render(); });
+else {
+    const nota = document.getElementById('admNota');
+    nota.hidden = false;
+    nota.textContent = 'Versión de prueba sin conexión: los cambios quedan solo en este navegador. Para el panel real usa el link publicado (…/admin.html).';
+    if (cerrarMesPendiente()) persist();
+    reglasAutomaticas();
+    render();
+}

@@ -104,3 +104,9 @@ export function formatFechaEvento(iso) {
     const hora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     return `${dia} ${fecha} · ${hora} h`;
 }
+
+/** ¿La promoción está vigente hoy? (sin fechas = siempre; con "hasta" pasada desaparece sola) */
+export function promoVigente(p, hoy = new Date()) {
+    const dia = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    return (!p.desde || p.desde <= dia) && (!p.hasta || p.hasta >= dia);
+}

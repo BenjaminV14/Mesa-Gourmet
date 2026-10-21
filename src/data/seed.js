@@ -7,6 +7,7 @@ import logoCarlota from '../assets/local-carlota.jpg';
 import logoQueEmpanadas from '../assets/local-queempanadas.jpg';
 import { nombreProducto } from './categorias.js';
 import { sugerirDietas } from '../services/dietas.js';
+import { normalizarCaracteristicas } from './caracteristicas.js';
 
 function fechaRelativa(dias) {
     const d = new Date();
@@ -132,7 +133,7 @@ export function buildSeedLocales() {
     return baseLocales.map(local => {
         const extra = extras[local.id] || {};
         const { menuExtra = [], ...rest } = extra;
-        return {
+        return normalizarCaracteristicas({
             ...local,
             ...rest,
             // Las distinciones se calculan con el ranking mensual; se registran al cerrar cada mes
@@ -141,7 +142,7 @@ export function buildSeedLocales() {
             eventos: rest.eventos || [],
             etiquetas: rest.etiquetas || [],
             caracteristicasDetalle: rest.caracteristicasDetalle || {}
-        };
+        });
     });
 }
 
