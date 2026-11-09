@@ -1,4 +1,4 @@
-# Publica las funciones de IA en Supabase (revisar fotos, leer cartas, opciones dietéticas).
+# Publica las funciones en Supabase (IA: revisar fotos, leer cartas, opciones dietéticas; y el correo mensual del Top 50).
 # Se ejecuta sola cuando cambia algo en supabase/functions, o a mano desde la pestaña Actions.
 #
 # Necesita dos secretos en GitHub > Settings > Secrets and variables > Actions:
@@ -58,3 +58,6 @@ jobs:
           for f in verificar-foto analizar-carta leer-carta; do
             supabase functions deploy "$f" --project-ref "$PROYECTO" --use-api
           done
+          # El envío del Top 50 lo llama la programación mensual sin clave: la función solo envía meses
+          # ya cerrados y nunca dos veces al mismo local (ver supabase/functions/enviar-top50)
+          supabase functions deploy enviar-top50 --project-ref "$PROYECTO" --use-api --no-verify-jwt

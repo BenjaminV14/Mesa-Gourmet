@@ -107,6 +107,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-tab.active { background: var(--mesa-red); color: #fff; }
 .auth-form { display: flex; flex-direction: column; gap: 14px; }
 .auth-form .form-group { margin-bottom: 0; }
+.auth-form .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.auth-form .form-row[hidden] { display: none; }
+.auth-form .form-row .input-wrapper input { min-width: 0; }
 .auth-form .input-wrapper input { padding: 14px; }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 0.8rem; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.15); }
@@ -729,3 +732,16 @@ button.profile-avatar-large img { border-radius: 50%; }
 .auth-forgot { align-self: flex-end; font-size: 0.82rem; margin: -6px 0 6px; }
 .app-cargando { position: fixed; inset: auto 0 calc(24px + env(safe-area-inset-bottom, 0px)); margin: 0 auto; width: max-content; z-index: 9000; padding: 8px 14px; border-radius: 999px; background: rgba(15, 23, 42, 0.92); color: #f8fafc; font-size: 0.82rem; border: 1px solid rgba(255, 215, 0, 0.4); }
 .como-llegar { display: inline-block; margin: -4px 0 10px 30px; text-decoration: none; }
+
+/* Top 50 de clientes en el perfil (solo lo ve la propia persona) */
+.top50-card .profile-section-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.top50-win { background: rgba(251, 191, 36, 0.10); border: 1px solid rgba(251, 191, 36, 0.45); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+.top50-win small { display: block; color: var(--text-secondary); font-size: 0.78rem; }
+.top50-benefit { font-size: 0.85rem; line-height: 1.45; }
+.top50-benefit span { color: var(--text-secondary); font-size: 0.78rem; }
+.top50-progress { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.top50-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 1fr auto; gap: 10px; align-items: center; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 10px; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.top50-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; }
+.top50-row small { color: var(--text-secondary); font-size: 0.75rem; white-space: nowrap; }
+.top50-bar { height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.10); overflow: hidden; }
+.top50-bar i { display: block; height: 100%; background: var(--mesa-gold, #fbbf24); border-radius: 4px; }

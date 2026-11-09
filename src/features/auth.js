@@ -95,7 +95,7 @@ function showInfo(message) {
     el.hidden = !message;
 }
 
-async function handleSubmitRemoto(nombre, email, password) {
+async function handleSubmitRemoto(nombre, email, password, extra = {}) {
     const boton = document.getElementById('authSubmit');
     const texto = boton.textContent;
     boton.disabled = true;
@@ -104,7 +104,7 @@ async function handleSubmitRemoto(nombre, email, password) {
     try {
         if (mode === 'register') {
             const { data, error } = await supabase.auth.signUp({
-                email, password, options: { data: { nombre }, emailRedirectTo: urlDeRetorno() }
+                email, password, options: { data: { nombre, apellido: extra.apellido || '', comparte_con_locales: !!extra.comparte }, emailRedirectTo: urlDeRetorno() }
             });
             if (error) throw error;
             if (!data.session) {
@@ -129,6 +129,8 @@ async function handleSubmitRemoto(nombre, email, password) {
 function handleSubmit(event) {
     event.preventDefault();
     const nombre = document.getElementById('authName').value.trim();
+    const apellido = document.getElementById('authApellido')?.value.trim() || '';
+    const comparte = !!document.getElementById('authComparte')?.checked;
     const email = document.getElementById('authEmail').value.trim().toLowerCase();
     const password = document.getElementById('authPassword').value;
 
@@ -138,13 +140,15 @@ function handleSubmit(event) {
         if (nombre.length < 2) return showError('Escribe tu nombre.');
         if (!document.getElementById('authTerms').checked) return showError('Debes aceptar los términos y la política de privacidad.');
     }
-    if (remoto) return handleSubmitRemoto(nombre, email, password);
+    if (remoto) return handleSubmitRemoto(nombre, email, password, { apellido, comparte });
 
     const previous = state.user && state.user.email === email ? state.user : null;
     state.user = normalizeUser(previous || {
         id: email,
         email,
         nombre: nombre || nombreDesdeCorreo(email),
+        apellido,
+        comparteConLocales: comparte,
         productoFavorito: null,
         bienvenidaVista: false,
         creado: new Date().toISOString()

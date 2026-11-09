@@ -50,7 +50,8 @@ function localDesdeFila(l, extra) {
         horasPeak: l.horas_peak || '', diasPeak: l.dias_peak || '',
         caracteristicas: l.caracteristicas || [], caracteristicasDetalle: l.caracteristicas_detalle || {},
         etiquetas: l.etiquetas || [], notaComida: Number(l.nota_comida) || 0, notaServicio: Number(l.nota_servicio) || 0,
-        distinciones: [], activo: l.activo,
+        distinciones: [], activo: l.activo, beneficioTop50: l.beneficio_top50 || '',
+        ...(extra.contactos?.[l.id] ? { contacto: extra.contactos[l.id] } : {}),
         menu: extra.platos.filter(p => p.local_id === l.id).map(p => ({
             nombre: p.nombre, categoria: p.categoria, precio: p.precio, imagen: p.imagen_url || '',
             isDrink: p.es_bebida, dietas: p.dietas || []
@@ -113,6 +114,7 @@ export async function cargarTodo({ admin = false } = {}) {
         lista(supabase.from('cierres_mes').select('*'))
     ]);
     let reportes = [], moderacion = [], encuestas = [], preguntas = [], metricas = [], favoritos = [], quiero = [], decisiones = [], reglas = [], perfiles = [];
+    let contactos = [], top50 = [], envios = [];
     if (admin) {
         // Tablas de la actualización 2: si aún no se ejecuta, el panel funciona igual sin ellas
         const opcional = consulta => lista(consulta).catch(() => []);
@@ -124,6 +126,12 @@ export async function cargarTodo({ admin = false } = {}) {
             opcional(supabase.from('decisiones_admin').select('*').order('creado_at', { ascending: false }).limit(2000)),
             opcional(supabase.from('reglas_admin').select('*')),
             opcional(supabase.from('perfiles').select('id, nombre, username, avatar_url, rol, creado_at').order('creado_at', { ascending: false }))
+        ]);
+        // Tablas de la actualización 3 (Top 50 de clientes): si aún no se ejecuta, el panel funciona igual
+        [contactos, top50, envios] = await Promise.all([
+            opcional(supabase.from('contactos_locales').select('*')),
+            opcional(supabase.from('top50_para_locales').select('*').order('puesto')),
+            opcional(supabase.from('envios_top50').select('*').order('enviado_at', { ascending: false }))
         ]);
         [reportes, moderacion, encuestas, preguntas] = await Promise.all([
             lista(supabase.from('reportes').select('*, autor:perfiles!reportes_usuario_id_fkey(id, nombre)').order('creado_at', { ascending: false })),
@@ -138,7 +146,8 @@ export async function cargarTodo({ admin = false } = {}) {
     const misFotoLikes = new Set(fLikes.map(x => x.foto_id));
     const misVideoLikes = new Set(vLikes.map(x => x.video_id));
 
-    db.locales = locales.map(l => normalizarCaracteristicas(localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal })));
+    const contactosPorLocal = Object.fromEntries(contactos.map(c => [c.local_id, { email: c.email || '', nombre: c.contacto || '', recibeTop50: c.recibe_top50 !== false }]));
+    db.locales = locales.map(l => normalizarCaracteristicas(localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal, contactos: contactosPorLocal })));
     db.reviews = resenas.map(r => resenaDesdeFila(r, misLikes, misFotoLikes, uid));
     db.videos = videos.map(v => videoDesdeFila(v, misVideoLikes, uid));
     db.cierres = cierres.map(c => ({ mes: c.mes, fecha: c.creado_at, distinciones: c.distinciones || {}, clientes: c.clientes || null }));
@@ -149,6 +158,9 @@ export async function cargarTodo({ admin = false } = {}) {
         db.decisiones = decisiones.map(d => ({ id: `dec-${d.id}`, tipo: d.tipo, caso: d.caso, decision: d.decision, nota: d.nota, fecha: d.creado_at }));
         db.reglas = Object.fromEntries(reglas.map(r => [r.tipo, { decision: r.decision, automatico: r.automatico, nota: r.nota || '' }]));
         db.usuarios = perfiles.map(p => ({ id: p.id, nombre: p.nombre, username: p.username, avatarUrl: p.avatar_url, rol: p.rol, creado: p.creado_at }));
+        // Top 50 cerrados (con nombre solo de quienes aceptaron compartirlo) y correos enviados a los locales
+        db.top50Listas = top50.map(t => ({ mes: t.mes, localId: t.local_id, puesto: t.puesto, resenas: t.resenas, comparte: t.comparte, nombre: t.nombre, apellido: t.apellido, username: t.username }));
+        db.enviosTop50 = envios.map(e => ({ mes: e.mes, localId: e.local_id, email: e.email, personas: e.personas, estado: e.estado, detalle: e.detalle, fecha: e.enviado_at }));
     }
     db.reports = reportes.map(r => ({
         id: r.id, tipo: r.tipo, localId: r.local_id, reviewId: r.resena_id, detalle: r.detalle || '', estado: r.estado,
@@ -171,12 +183,14 @@ export async function cargarTodo({ admin = false } = {}) {
 /** Carga la cuenta de la persona (perfil, favoritos, seguidos, guardados) y la deja en state.user */
 export async function cargarUsuario(session) {
     const uid = session.user.id;
-    const [perfiles, favoritos, quiero, siguiendo, guardados] = await Promise.all([
+    const [perfiles, favoritos, quiero, siguiendo, guardados, miTop50] = await Promise.all([
         lista(supabase.from('perfiles').select('*').eq('id', uid)),
         lista(supabase.from('favoritos').select('local_id').eq('usuario_id', uid)),
         lista(supabase.from('quiero_ir').select('local_id').eq('usuario_id', uid)),
         lista(supabase.from('seguidores').select('seguido_id').eq('seguidor_id', uid)),
-        lista(supabase.from('guardados').select('tipo, item_id').eq('usuario_id', uid))
+        lista(supabase.from('guardados').select('tipo, item_id').eq('usuario_id', uid)),
+        // Mis puestos en el Top 50 de clientes de meses cerrados (la base solo me muestra los míos)
+        lista(supabase.from('top50_mes').select('mes, local_id, puesto, resenas').eq('usuario_id', uid)).catch(() => [])
     ]);
     const p = perfiles[0] || {};
     const meta = session.user.user_metadata || {};
@@ -184,7 +198,11 @@ export async function cargarUsuario(session) {
     state.user = normalizeUser({
         id: uid,
         email: session.user.email,
-        nombre: p.nombre || meta.full_name || meta.name || session.user.email.split('@')[0],
+        nombre: p.nombre || meta.given_name || meta.full_name || meta.name || session.user.email.split('@')[0],
+        apellido: p.apellido || meta.family_name || '',
+        comparteConLocales: !!p.comparte_con_locales,
+        comparteConLocalesFecha: p.comparte_con_locales_at || null,
+        top50: miTop50.map(t => ({ mes: t.mes, localId: t.local_id, puesto: t.puesto, resenas: t.resenas })),
         username: p.username,
         avatarUrl: p.avatar_url || meta.avatar_url || null,
         rol: p.rol || 'usuario',
@@ -218,7 +236,8 @@ function fotoDeUsuario(u) {
 
 function filaDePerfil(u) {
     return {
-        nombre: u.nombre, username: u.username, avatar_url: u.avatarUrl || null, producto_favorito: u.productoFavorito || null,
+        nombre: u.nombre, apellido: u.apellido || null, comparte_con_locales: !!u.comparteConLocales,
+        username: u.username, avatar_url: u.avatarUrl || null, producto_favorito: u.productoFavorito || null,
         preferencias: { ...(u.preferencias || {}), bienvenidaVista: !!u.bienvenidaVista }
     };
 }
@@ -281,9 +300,11 @@ function filaDeLocal(l) {
         horarios: l.horariosSemana || {}, horario_feriados: l.horarioFeriados || null, medios_pago: l.mediosPago || null,
         capacidad: l.capacidad || null, ambiente: l.ambiente || null, tematica: l.tematica || null,
         horas_peak: l.horasPeak || null, dias_peak: l.diasPeak || null, caracteristicas: l.caracteristicas || [],
-        caracteristicas_detalle: l.caracteristicasDetalle || {}, etiquetas: l.etiquetas || []
+        caracteristicas_detalle: l.caracteristicasDetalle || {}, etiquetas: l.etiquetas || [],
+        beneficio_top50: l.beneficioTop50 || null
     };
 }
+const contactoDe = l => l.contacto ? { local_id: l.id, email: l.contacto.email || null, contacto: l.contacto.nombre || null, recibe_top50: l.contacto.recibeTop50 !== false } : null;
 const platosDe = l => (l.menu || []).filter(m => m.nombre).map((m, i) => ({
     local_id: l.id, nombre: m.nombre, categoria: m.categoria || 'Otros', precio: Math.max(0, Number(m.precio) || 0),
     imagen_url: m.imagen || null, es_bebida: !!m.isDrink, dietas: m.dietas || [], orden: i
@@ -308,6 +329,7 @@ function tomarFoto() {
         promos: mapa(db.locales, l => l.id, promosDe),
         patrocinios: mapa(db.locales, l => l.id, patrociniosDe),
         encuestas: mapa(db.locales, l => l.id, l => l.encuesta?.respuestas || null),
+        contactos: mapa(db.locales, l => l.id, contactoDe),
         resenas: mapa(db.reviews, r => r.id, r => ({ estado: r.estado, fotos: (r.fotos || []).map(f => [f.id, !!f.verificada]) })),
         resenaLikes: new Set(db.reviews.filter(r => (r.likedBy || []).includes(uid)).map(r => r.id)),
         fotoLikes: new Set(db.reviews.flatMap(r => r.fotos || []).filter(f => (f.likedBy || []).includes(uid)).map(f => f.id)),
@@ -426,6 +448,10 @@ async function sincronizarDatos() {
             if (ahora.eventos.get(id) !== foto.eventos.get(id)) await reemplazar('eventos', id, eventosDe(l));
             if (ahora.promos.get(id) !== foto.promos.get(id)) await reemplazar('promociones', id, promosDe(l));
             if (ahora.patrocinios.get(id) !== foto.patrocinios.get(id)) await reemplazar('patrocinios', id, patrociniosDe(l));
+            if (ahora.contactos.get(id) !== foto.contactos.get(id) && contactoDe(l)) {
+                const { error } = await supabase.from('contactos_locales').upsert({ ...contactoDe(l), actualizado_at: new Date().toISOString() });
+                if (error) throw error;
+            }
             if (ahora.encuestas.get(id) !== foto.encuestas.get(id) && l.encuesta?.respuestas) {
                 const { error } = await supabase.from('encuestas_locales').upsert({ local_id: id, respuestas: l.encuesta.respuestas, actualizada_at: new Date().toISOString() });
                 if (error) throw error;
