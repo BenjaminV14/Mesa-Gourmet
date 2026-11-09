@@ -29,6 +29,10 @@ let currentTab = 'info';
 export function showLocalDetail(localId, tab = 'info') {
     const local = getLocal(Number(localId));
     if (!local) return;
+    if (local.activo === false) {
+        import('../ui/feedback.js').then(m => m.showToast(`${local.nombre} cerró. Sus reseñas siguen en el perfil de cada autor.`));
+        return;
+    }
     state.currentLocalId = local.id;
     document.getElementById('publicProfile')?.remove(); // si se abrió desde el perfil de alguien
     registrarMetrica(local.id, 'vista');

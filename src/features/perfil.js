@@ -80,11 +80,11 @@ function tabContent(u) {
             ${!videos.length && !resenas.length ? '<p class="muted center">Toca 📌 en una reseña o video para guardarlo aquí.</p>' : ''}`;
     }
     if (tab === 'quiero') {
-        const locales = u.quieroIr.map(getLocal).filter(Boolean);
+        const locales = u.quieroIr.map(getLocal).filter(l => l && l.activo !== false);
         return locales.length ? `<div class="review-list">${locales.map(l => localRow(l)).join('')}</div>`
             : '<p class="muted center">Toca 🔖 "Quiero ir" en un local o una reseña para armar tu lista.</p>';
     }
-    const favs = u.favoritos.map(getLocal).filter(Boolean);
+    const favs = u.favoritos.map(getLocal).filter(l => l && l.activo !== false);
     return favs.length ? `<div class="review-list">${favs.map(l => localRow(l)).join('')}</div>`
         : '<p class="muted center">Toca ❤️ en un local para guardarlo en favoritos.</p>';
 }

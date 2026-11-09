@@ -40,6 +40,7 @@ function siguiendo(userId) {
 
 export function reviewCard(r, { showLocal = true } = {}) {
     const local = getLocal(r.localId);
+    const cerrado = local?.activo === false;   // local archivado: solo su autor ve esta reseña (en su perfil)
     const propia = isLoggedIn() && r.usuario.id === state.user.id;
     const guardada = isLoggedIn() && state.user.guardados.resenas.includes(String(r.id));
     const fotos = r.fotos || [];
@@ -55,7 +56,9 @@ export function reviewCard(r, { showLocal = true } = {}) {
             </button>
             ${propia ? '' : `<button class="follow-btn ${siguiendo(r.usuario.id) ? 'is-on' : ''}" data-action="follow-user" data-user="${esc(r.usuario.id)}">${siguiendo(r.usuario.id) ? 'Siguiendo' : 'Seguir'}</button>`}
         </div>
-        ${showLocal && local ? `<button class="review-local" data-action="open-local" data-id="${local.id}"><img src="${esc(safeUrl(local.imagen))}" alt=""> ${esc(local.nombre)}</button>` : ''}
+        ${showLocal && local ? (cerrado
+            ? `<span class="review-local is-closed"><img src="${esc(safeUrl(local.imagen))}" alt=""> ${esc(local.nombre)} <span class="closed-tag">🔒 Local cerrado</span></span>`
+            : `<button class="review-local" data-action="open-local" data-id="${local.id}"><img src="${esc(safeUrl(local.imagen))}" alt=""> ${esc(local.nombre)}</button>`) : ''}
         ${fotos.length ? `
         <div class="photo-carousel" data-carousel="${esc(r.id)}">
             <div class="photo-track" data-carousel-track>
@@ -83,7 +86,7 @@ export function reviewCard(r, { showLocal = true } = {}) {
         <div class="review-foot">
             ${likeButton(r, 'like-review')}
             <div class="review-foot-actions">
-                ${local && !propia ? `<button class="mini-action quiero-btn ${isLoggedIn() && state.user.quieroIr.includes(local.id) ? 'is-on' : ''}" data-action="toggle-quiero" data-id="${local.id}">🔖 Quiero ir</button>` : ''}
+                ${local && !propia && !cerrado ? `<button class="mini-action quiero-btn ${isLoggedIn() && state.user.quieroIr.includes(local.id) ? 'is-on' : ''}" data-action="toggle-quiero" data-id="${local.id}">🔖 Quiero ir</button>` : ''}
                 <button class="mini-action ${guardada ? 'is-on' : ''}" data-action="save-review" data-id="${esc(r.id)}" aria-pressed="${guardada}">${guardada ? '📌 Guardada' : '📌 Guardar'}</button>
                 <button class="report-mini" data-action="report-review" data-id="${esc(r.id)}" aria-label="Reportar reseña">⚑</button>
             </div>

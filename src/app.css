@@ -755,3 +755,7 @@ button.profile-avatar-large img { border-radius: 50%; }
 .legal-text .legal-meta { color: var(--text-secondary); font-size: 0.78rem; }
 .legal-text a { color: var(--mesa-gold); }
 .legal-falta { background: rgba(239, 68, 68, 0.18); color: #fecaca; border-radius: 4px; padding: 0 4px; }
+
+/* Reseña de un local que cerró (solo la ve su autor en su perfil) */
+.review-local.is-closed { opacity: 0.75; cursor: default; }
+.closed-tag { font-size: 0.72rem; background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); padding: 1px 7px; border-radius: 8px; margin-left: 4px; }
