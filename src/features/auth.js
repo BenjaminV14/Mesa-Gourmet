@@ -2,6 +2,7 @@
 // En línea (Supabase): cuentas reales con confirmación por correo, ingreso con Google y recuperación de contraseña.
 // DEMO (sin Supabase): la cuenta se guarda solo en este navegador y la contraseña NO se guarda.
 import { state, isLoggedIn, normalizeUser } from '../state.js';
+import { terminosHtml, privacidadHtml } from '../legal/textos.js';
 import { saveSession } from '../data/store.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
@@ -95,7 +96,7 @@ function showInfo(message) {
     el.hidden = !message;
 }
 
-async function handleSubmitRemoto(nombre, email, password) {
+async function handleSubmitRemoto(nombre, email, password, extra = {}) {
     const boton = document.getElementById('authSubmit');
     const texto = boton.textContent;
     boton.disabled = true;
@@ -104,7 +105,7 @@ async function handleSubmitRemoto(nombre, email, password) {
     try {
         if (mode === 'register') {
             const { data, error } = await supabase.auth.signUp({
-                email, password, options: { data: { nombre }, emailRedirectTo: urlDeRetorno() }
+                email, password, options: { data: { nombre, apellido: extra.apellido || '', comparte_con_locales: !!extra.comparte }, emailRedirectTo: urlDeRetorno() }
             });
             if (error) throw error;
             if (!data.session) {
@@ -129,6 +130,8 @@ async function handleSubmitRemoto(nombre, email, password) {
 function handleSubmit(event) {
     event.preventDefault();
     const nombre = document.getElementById('authName').value.trim();
+    const apellido = document.getElementById('authApellido')?.value.trim() || '';
+    const comparte = !!document.getElementById('authComparte')?.checked;
     const email = document.getElementById('authEmail').value.trim().toLowerCase();
     const password = document.getElementById('authPassword').value;
 
@@ -138,13 +141,15 @@ function handleSubmit(event) {
         if (nombre.length < 2) return showError('Escribe tu nombre.');
         if (!document.getElementById('authTerms').checked) return showError('Debes aceptar los términos y la política de privacidad.');
     }
-    if (remoto) return handleSubmitRemoto(nombre, email, password);
+    if (remoto) return handleSubmitRemoto(nombre, email, password, { apellido, comparte });
 
     const previous = state.user && state.user.email === email ? state.user : null;
     state.user = normalizeUser(previous || {
         id: email,
         email,
         nombre: nombre || nombreDesdeCorreo(email),
+        apellido,
+        comparteConLocales: comparte,
         productoFavorito: null,
         bienvenidaVista: false,
         creado: new Date().toISOString()
@@ -228,16 +233,17 @@ registerActions({
         showToast('Contraseña actualizada.');
     },
     'logout': () => logout(),
+    // Textos completos en src/legal/textos.js (también publicados en legal.html)
     'show-terms': () => openSheet({
         id: 'legalSheet',
         title: 'Términos y condiciones',
-        body: `<p class="sheet-text">Borrador pendiente de revisión legal. Al usar Mesa Gourmet aceptas publicar reseñas honestas sobre tu propia experiencia, no subir contenido de terceros sin permiso y que moderemos o retiremos contenido que no cumpla estas reglas. Los locales marcados como "Destacado" pagaron por aparecer primero.</p>`,
+        body: `<div class="sheet-text legal-text">${terminosHtml()}</div>`,
         actions: [{ label: 'Entendido', action: 'close-sheet', variant: 'primary' }]
     }),
     'show-privacy': () => openSheet({
         id: 'legalSheet',
         title: 'Política de privacidad',
-        body: `<p class="sheet-text">Borrador pendiente de revisión legal. Guardamos tu nombre, correo, reseñas, fotos, videos compartidos y, si lo autorizas, tu ubicación aproximada para mostrar locales cercanos. No vendemos tus datos. Puedes descargar tus datos o eliminar tu cuenta desde tu perfil en cualquier momento.</p>`,
+        body: `<div class="sheet-text legal-text">${privacidadHtml()}</div>`,
         actions: [{ label: 'Entendido', action: 'close-sheet', variant: 'primary' }]
     })
 });

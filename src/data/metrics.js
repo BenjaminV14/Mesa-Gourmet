@@ -167,15 +167,19 @@ export function cerrarMesPendiente(hoy = new Date()) {
 
 // =================== CLIENTES FRECUENTES ===================
 
+/** Reseñas mínimas en el mes, en el mismo local, para entrar al Top 50 de clientes de ese local */
+export const MINIMO_TOP50 = 5;
+
 /**
- * Visitas por persona a cada local en un mes. Cada reseña cuenta como una visita.
- * "Cliente del mes": 5 o más visitas al mismo local en el mes.
+ * Visitas por persona a cada local en un mes. Cada reseña publicada cuenta como una visita
+ * (la base de datos permite una reseña por local al día, así que 5 reseñas = 5 días distintos).
+ * "Cliente del mes" / Top 50: 5 o más visitas al mismo local en el mes. Igual que generar_top50 en Supabase.
  */
-export function clientesFrecuentes(localId, date = new Date(), minimo = 5) {
+export function clientesFrecuentes(localId, date = new Date(), minimo = MINIMO_TOP50) {
     const y = date.getFullYear();
     const m = date.getMonth();
     const conteo = new Map();
-    db.reviews.filter(r => r.localId === localId && r.estado !== 'rechazada').forEach(r => {
+    db.reviews.filter(r => r.localId === localId && r.estado === 'publicada').forEach(r => {
         const d = new Date(r.fecha);
         if (d.getFullYear() !== y || d.getMonth() !== m) return;
         const c = conteo.get(r.usuario.id) || { usuario: r.usuario, visitas: 0, ultima: r.fecha };
@@ -186,10 +190,10 @@ export function clientesFrecuentes(localId, date = new Date(), minimo = 5) {
     return [...conteo.values()].sort((a, b) => b.visitas - a.visitas).map(c => ({ ...c, esClienteDelMes: c.visitas >= minimo }));
 }
 
-/** Top 50 clientes de un local en un mes (más visitas primero; si empatan, quien vino más recientemente) */
+/** Clientes de un local en un mes, ordenados (más visitas primero; si empatan, quien llegó antes a esa cantidad) */
 export function topClientes(localId, date = new Date(), limite = 50) {
     return clientesFrecuentes(localId, date)
-        .sort((a, b) => (b.visitas - a.visitas) || (new Date(b.ultima) - new Date(a.ultima)))
+        .sort((a, b) => (b.visitas - a.visitas) || (new Date(a.ultima) - new Date(b.ultima)))
         .slice(0, limite)
         .map((c, i) => ({ ...c, puesto: i + 1 }));
 }
@@ -205,7 +209,8 @@ export function vipsDeLocal(localId, date = new Date()) {
     const pasado = mesAnterior(date);
     const etiqueta = `${MESES[pasado.getMonth()]} ${pasado.getFullYear()}`;
     const cierre = (db.cierres || []).find(c => c.mes === etiqueta);
-    if (cierre?.clientes) {
+    // Desde la actualización 3 los cierres ya no guardan nombres (quedan vacíos): se calcula desde las reseñas
+    if (cierre?.clientes && Object.keys(cierre.clientes).length) {
         return (cierre.clientes[localId] || []).filter(c => c.vip)
             .map(c => ({ usuario: { id: c.id, nombre: c.nombre, username: c.username }, visitas: c.visitas, mes: MESES[pasado.getMonth()] }));
     }
@@ -215,4 +220,19 @@ export function vipsDeLocal(localId, date = new Date()) {
 /** Locales donde una persona es cliente VIP ahora */
 export function vipDeUsuario(userId, date = new Date()) {
     return db.locales.filter(l => vipsDeLocal(l.id, date).some(c => c.usuario.id === userId));
+}
+
+/**
+ * Top 50 de clientes de una persona en el mes: en qué locales va, cuántas reseñas lleva y su puesto provisional.
+ * Solo lo ve la propia persona (en su perfil).
+ */
+export function miTop50(userId, date = new Date()) {
+    return db.locales.map(local => {
+        const lista = topClientes(local.id, date, Infinity);
+        const yo = lista.find(c => c.usuario.id === userId);
+        if (!yo) return null;
+        const dentro = lista.filter(c => c.visitas >= MINIMO_TOP50);
+        const puesto = yo.visitas >= MINIMO_TOP50 ? dentro.findIndex(c => c.usuario.id === userId) + 1 : null;
+        return { local, visitas: yo.visitas, faltan: Math.max(0, MINIMO_TOP50 - yo.visitas), puesto: puesto && puesto <= 50 ? puesto : null };
+    }).filter(Boolean).sort((a, b) => b.visitas - a.visitas);
 }

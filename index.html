@@ -34,9 +34,15 @@
                 </div>
 
                 <form id="authForm" class="auth-form" novalidate>
-                    <div class="form-group register-only" hidden>
-                        <label for="authName">Nombre</label>
-                        <div class="input-wrapper"><input type="text" id="authName" autocomplete="name" maxlength="40" placeholder="Tu nombre"></div>
+                    <div class="form-row register-only" hidden>
+                        <div class="form-group">
+                            <label for="authName">Nombre</label>
+                            <div class="input-wrapper"><input type="text" id="authName" autocomplete="given-name" maxlength="40" placeholder="Tu nombre"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="authApellido">Apellido</label>
+                            <div class="input-wrapper"><input type="text" id="authApellido" autocomplete="family-name" maxlength="40" placeholder="Tu apellido"></div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="authEmail">Correo electrónico</label>
@@ -49,7 +55,11 @@
                     <button type="button" class="link-btn auth-forgot login-only" data-action="auth-forgot">¿Olvidaste tu contraseña?</button>
                     <label class="check-row register-only" hidden>
                         <input type="checkbox" id="authTerms">
-                        <span>Acepto los <a href="#" data-action="show-terms">términos</a> y la <a href="#" data-action="show-privacy">política de privacidad</a></span>
+                        <span>Tengo 14 años o más y acepto los <a href="#" data-action="show-terms">términos</a> y la <a href="#" data-action="show-privacy">política de privacidad</a></span>
+                    </label>
+                    <label class="check-row register-only" hidden>
+                        <input type="checkbox" id="authComparte">
+                        <span><b>Opcional:</b> si quedo en el Top 50 de clientes de un local, acepto que Mesa Gourmet le comparta mi nombre, apellido y @usuario para que pueda ofrecerme beneficios. Puedo retirarlo cuando quiera en Perfil → Privacidad.</span>
                     </label>
                     <p class="form-error" id="authError" role="alert" hidden></p>
                     <p class="form-info" id="authInfo" role="status" hidden></p>

@@ -110,6 +110,20 @@ function renderForm(local) {
             </section>
 
             <section class="adm-card">
+                <h2>Contacto y Top 50 de clientes</h2>
+                <p class="adm-help">El día 1 de cada mes se envía a este correo el Top 50 de clientes del mes anterior (personas con 5 reseñas o más en el local),
+                con nombre, apellido y @usuario <b>solo de quienes lo autorizaron</b>, más los números del mes. El correo no se muestra en la app.
+                El beneficio sí lo ven los clientes que quedan en el Top 50 (en su perfil, junto al código MESAGOURMET).</p>
+                <div class="adm-grid">
+                    ${field('Correo del local', 'f_contacto_email', l.contacto?.email || '', { type: 'email', placeholder: 'dueno@local.cl' })}
+                    ${field('Nombre de quien lo recibe', 'f_contacto_nombre', l.contacto?.nombre || '', { placeholder: 'Ej: Ramsés' })}
+                    ${field('Beneficio para su Top 50 (opcional)', 'f_beneficio', l.beneficioTop50 || '', { full: true, placeholder: 'Ej: 10% de descuento en tu próxima visita' })}
+                    <label class="adm-toggle full" style="grid-column: 1 / -1"><input type="checkbox" id="f_recibe_top50" ${l.contacto?.recibeTop50 === false ? '' : 'checked'}>
+                        <span>El local aceptó recibir la lista mensual (y se comprometió a usarla solo para ofrecer beneficios y a borrarla al mes)</span></label>
+                </div>
+            </section>
+
+            <section class="adm-card">
                 <h2>Ubicación</h2>
                 <p class="adm-help">Para obtener las coordenadas: en Google Maps mantén presionado el local y copia los números que aparecen (ej: -35.4264, -71.6554).</p>
                 <div class="adm-grid">
@@ -188,6 +202,8 @@ function saveForm(event) {
     }
     const website = val('f_website');
     if (website && !safeUrl(website).startsWith('http')) return fail('El sitio web debe empezar con https://');
+    const correoLocal = val('f_contacto_email').toLowerCase();
+    if (correoLocal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoLocal)) return fail('El correo del local no es válido.');
 
     const datos = {
         nombre, tipo,
@@ -206,6 +222,8 @@ function saveForm(event) {
         horariosSemana: horarios,
         caracteristicas: CARACTERISTICAS.filter((_, i) => document.getElementById(`f_c_${i}`).checked),
         caracteristicasDetalle: Object.fromEntries(CARACTERISTICAS.map((c, i) => [c, val(`f_cd_${i}`)]).filter(([, v]) => v)),
+        beneficioTop50: val('f_beneficio'),
+        contacto: { email: correoLocal, nombre: val('f_contacto_nombre'), recibeTop50: document.getElementById('f_recibe_top50').checked },
         ...Object.fromEntries(EXTRAS.map(([key]) => [key, val(`f_x_${key}`)]))
     };
 

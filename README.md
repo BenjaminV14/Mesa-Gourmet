@@ -67,7 +67,8 @@ Panel de administración → **Encuesta a locales**, con tres pestañas:
 
 - **Mapa de ubicaciones**: arrastra el punto de cada local hasta su lugar exacto (se guarda al soltar y se puede deshacer).
 - **Cartas**: platos, precios y para quién son aptos (vegano, vegetariano, sin gluten, sin lactosa).
-- **Top y clientes**: Top 10 actual, "Cerrar el mes" (guarda las distinciones del mes) y clientes frecuentes (5 visitas en el mes = cliente del mes).
+- **Top y clientes**: Top 10 actual, "Cerrar el mes" (guarda las distinciones del mes), Top 50 de clientes de cada local (5 reseñas o más en el mes) y el **correo mensual a los locales** con su Top 50 (solo con los datos de quienes lo autorizaron; la lista se borra sola al mes siguiente).
+- **Términos y privacidad**: `src/legal/textos.js`, publicados también en `legal.html` (ver `docs/LEGAL.md`).
 
 ## Guías
 

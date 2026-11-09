@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Términos y privacidad · Mesa Gourmet</title>
+    <meta name="description" content="Términos y condiciones y política de privacidad de Mesa Gourmet, guía gastronómica de Talca.">
+    <style>
+        :root { --vino: #7a1f2b; --oro: #b8860b; --texto: #1f1f1f; --suave: #5f5f5f; --fondo: #faf6f0; --tarjeta: #ffffff; --linea: #e8dfd3; }
+        @media (prefers-color-scheme: dark) {
+            :root { --vino: #e0707c; --oro: #f0c75e; --texto: #ece7e1; --suave: #a9a29a; --fondo: #15110f; --tarjeta: #1f1a17; --linea: #3a322c; }
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        header { background: var(--vino); color: #fff; padding: 28px 16px 22px; }
+        @media (prefers-color-scheme: dark) { header { background: #4a1219; } }
+        header .wrap { max-width: 760px; margin: 0 auto; }
+        header a { color: #fff; opacity: .85; font-size: .9rem; text-decoration: none; }
+        header h1 { margin: 6px 0 0; font-size: 1.6rem; }
+        nav { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        nav a { background: rgba(255,255,255,.15); color: #fff; padding: 7px 14px; border-radius: 999px; text-decoration: none; font-size: .9rem; opacity: 1; }
+        main { max-width: 760px; margin: 0 auto; padding: 16px; }
+        section { background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 14px; padding: 8px 20px 18px; margin: 16px 0; }
+        section > h2 { color: var(--vino); scroll-margin-top: 16px; }
+        h3 { color: var(--vino); font-size: 1.02rem; margin: 22px 0 6px; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 5px; }
+        a { color: var(--vino); }
+        .legal-meta { color: var(--suave); font-size: .85rem; }
+        .legal-falta { background: #fde2e2; color: #8a1c1c; border-radius: 4px; padding: 0 4px; }
+        footer { text-align: center; color: var(--suave); font-size: .85rem; padding: 10px 16px 30px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="wrap">
+            <a href="./index.html">← Volver a Mesa Gourmet</a>
+            <h1>Términos y privacidad</h1>
+            <nav><a href="#terminos">Términos y condiciones</a><a href="#privacidad">Política de privacidad</a></nav>
+        </div>
+    </header>
+    <main>
+        <section><h2 id="terminos">Términos y condiciones</h2><div id="terminosTexto"></div></section>
+        <section><h2 id="privacidad">Política de privacidad</h2><div id="privacidadTexto"></div></section>
+    </main>
+    <footer>Mesa Gourmet · Guía gastronómica de Talca</footer>
+    <script type="module">
+        import { terminosHtml, privacidadHtml } from './src/legal/textos.js';
+        document.getElementById('terminosTexto').innerHTML = terminosHtml();
+        document.getElementById('privacidadTexto').innerHTML = privacidadHtml();
+        if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+    </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
-// Dos páginas: la app (index.html) y el panel de administración (admin.html)
+// Tres páginas: la app (index.html), el panel de administración (admin.html) y los textos legales (legal.html)
 export default defineConfig({
     // Rutas relativas: la app funciona en la raíz de un dominio (Netlify) y en una subcarpeta (GitHub Pages)
     base: './',
@@ -9,7 +9,8 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 app: resolve(__dirname, 'index.html'),
-                admin: resolve(__dirname, 'admin.html')
+                admin: resolve(__dirname, 'admin.html'),
+                legal: resolve(__dirname, 'legal.html')
             }
         }
     }
