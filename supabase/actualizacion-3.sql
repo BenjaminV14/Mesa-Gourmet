@@ -11,6 +11,10 @@
 --  5. envios_top50: registro de qué correo se envió a qué local (para no enviarlo dos veces)
 --  6. cerrar_mes ya no guarda la lista de clientes con nombres en cierres_mes (esa tabla es pública)
 --  7. Envío automático: el día 1 de cada mes se llama a la función "enviar-top50"
+--  8. Privacidad: de los perfiles ajenos solo se puede leer nombre, @usuario, foto y rol (antes cualquiera
+--     podía leer preferencias con las dietas —dato de salud—, apellido, bloqueo y consentimientos)
+--  9. "Eliminar mi cuenta" borra la cuenta al instante (antes quedaba pendiente para hacerlo a mano)
+-- 10. Limpieza al cerrar cada mes: métricas de uso de más de 13 meses y reportes resueltos de más de 12 meses
 -- =====================================================================
 
 -- 1. Perfil: apellido y consentimiento ---------------------------------------------------------
@@ -275,6 +279,10 @@ begin
     perform public.generar_top50(p_dia);
     perform public.generar_estadisticas_mes(p_dia);
 
+    -- Plazos de conservación (ver política de privacidad): las estadísticas del mes ya quedaron guardadas sin datos personales
+    delete from public.metricas_locales where creado_at < now() - interval '13 months';
+    delete from public.reportes where estado <> 'abierto' and creado_at < now() - interval '12 months';
+
     insert into public.cierres_mes (mes, distinciones, clientes)
     values (v_mes, v_distinciones, '{}'::jsonb)
     on conflict (mes) do update set distinciones = excluded.distinciones, clientes = '{}'::jsonb, creado_at = now();
@@ -336,3 +344,38 @@ begin
         raise notice 'pg_net o pg_cron no están disponibles: envía el Top 50 desde el panel.';
     end if;
 end $$;
+
+-- 8. Privacidad de los perfiles ---------------------------------------------------------------
+-- La app solo necesita mostrar de otras personas su nombre, @usuario y foto. El resto (apellido, preferencias
+-- con dietas, consentimientos, bloqueo, producto favorito) solo lo lee la propia persona con mi_perfil().
+-- "Perfil público" (Perfil → Privacidad): columna pública para saber si se puede ver el perfil de alguien
+alter table public.perfiles add column if not exists perfil_publico boolean not null default true;
+update public.perfiles set perfil_publico = coalesce((preferencias ->> 'perfilPublico')::boolean, true);
+
+revoke select on public.perfiles from anon, authenticated;
+grant select (id, nombre, username, avatar_url, rol, creado_at, perfil_publico) on public.perfiles to anon, authenticated;
+
+create or replace function public.mi_perfil() returns setof public.perfiles
+language sql stable security definer set search_path = '' as $$
+    select * from public.perfiles where id = auth.uid();
+$$;
+revoke all on function public.mi_perfil() from public, anon;
+grant execute on function public.mi_perfil() to authenticated;
+
+-- 9. Eliminar mi cuenta (Ley 21.719, derecho de supresión; también lo exigen Play Store y App Store) ----
+-- Borra el usuario de Supabase Auth; por las claves foráneas se borran en cascada su perfil, reseñas, fotos
+-- (registros), videos, likes, favoritos, seguidos, guardados, reportes y su lugar en el Top 50.
+-- Los archivos (fotos y videos) los borra la app antes de llamar a esta función.
+create or replace function public.eliminar_mi_cuenta() returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+    v_id uuid := auth.uid();
+begin
+    if v_id is null then raise exception 'Debes iniciar sesión.'; end if;
+    if exists (select 1 from public.perfiles where id = v_id and rol = 'admin') then
+        raise exception 'Una cuenta de administrador no se puede eliminar desde la app.';
+    end if;
+    delete from auth.users where id = v_id;
+end $$;
+revoke all on function public.eliminar_mi_cuenta() from public, anon;
+grant execute on function public.eliminar_mi_cuenta() to authenticated;

@@ -745,3 +745,13 @@ button.profile-avatar-large img { border-radius: 50%; }
 .top50-row small { color: var(--text-secondary); font-size: 0.75rem; white-space: nowrap; }
 .top50-bar { height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.10); overflow: hidden; }
 .top50-bar i { display: block; height: 100%; background: var(--mesa-gold, #fbbf24); border-radius: 4px; }
+
+/* Términos y política de privacidad */
+.legal-text { line-height: 1.55; font-size: 0.88rem; }
+.legal-text h3 { font-size: 0.98rem; margin: 18px 0 6px; color: var(--mesa-gold); }
+.legal-text ul { padding-left: 18px; margin: 6px 0; }
+.legal-text li { margin-bottom: 4px; }
+.legal-text p { margin: 6px 0; }
+.legal-text .legal-meta { color: var(--text-secondary); font-size: 0.78rem; }
+.legal-text a { color: var(--mesa-gold); }
+.legal-falta { background: rgba(239, 68, 68, 0.18); color: #fecaca; border-radius: 4px; padding: 0 4px; }

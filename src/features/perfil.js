@@ -17,6 +17,23 @@ import { canInstall } from '../services/pwa.js';
 import { DIETAS } from '../data/metrics.js';
 
 let tab = 'actividad';
+
+/** Borra las fotos (reseñas y perfil) y videos de la persona en Supabase Storage: todo vive en la carpeta con su id */
+async function borrarMisArchivos(uid) {
+    for (const bucket of ['fotos-resenas', 'videos']) {
+        const rutas = [];
+        const recorrer = async (carpeta, nivel = 0) => {
+            const { data } = await supabase.storage.from(bucket).list(carpeta, { limit: 1000 });
+            for (const item of data || []) {
+                const ruta = `${carpeta}/${item.name}`;
+                if (item.id) rutas.push(ruta);          // archivo
+                else if (nivel < 3) await recorrer(ruta, nivel + 1);   // subcarpeta (una por reseña)
+            }
+        };
+        await recorrer(uid).catch(() => {});
+        for (let i = 0; i < rutas.length; i += 100) await supabase.storage.from(bucket).remove(rutas.slice(i, i + 100)).catch(() => {});
+    }
+}
 let avatarNuevo; // foto elegida en "Editar perfil" que se guarda al presionar Guardar
 
 export function showWelcomeIfNeeded() {
@@ -361,6 +378,9 @@ registerActions({
             usarUbicacion: document.getElementById('priv_ubicacion').checked
         });
         state.user.comparteConLocales = document.getElementById('priv_comparte').checked;
+        // Las reseñas propias llevan la preferencia para que otros vean (o no) el perfil
+        db.reviews.filter(r => r.usuario.id === state.user.id).forEach(r => { r.usuario.perfilPublico = state.user.preferencias.perfilPublico !== false; });
+        persist();
         saveSession(state.user);
         closeSheet('settingsSheet');
         showToast('Privacidad actualizada');
@@ -385,24 +405,31 @@ registerActions({
     'delete-account': () => openSheet({
         id: 'deleteAccount',
         title: '¿Eliminar tu cuenta?',
-        body: '<p class="sheet-text">Se borrarán tu perfil, tus reseñas, tus fotos, tus videos y tus favoritos. Esta acción no se puede deshacer.</p>',
+        body: '<p class="sheet-text">Se borrarán al instante tu cuenta, tu perfil, tus reseñas, tus fotos, tus videos, tus favoritos y tu lugar en los Top 50 de clientes. Esta acción no se puede deshacer. Si quieres una copia antes, usa "Descargar mis datos".</p>',
         actions: [{ label: 'Sí, eliminar mi cuenta', action: 'confirm-delete', variant: 'danger' }, { label: 'Cancelar', action: 'close-sheet', variant: 'ghost' }]
     }),
     'confirm-delete': async () => {
         const id = state.user.id;
         if (remoto) {
-            // Se borra todo lo publicado por la persona y queda la solicitud para borrar la cuenta (Ley 21.719).
-            // El administrador elimina el acceso en Supabase > Authentication > Users dentro de 30 días.
+            // Derecho de supresión (Ley 21.719): primero se borran los archivos (fotos y videos) y luego la cuenta,
+            // que en la base de datos borra en cascada todo lo demás (eliminar_mi_cuenta en actualizacion-3.sql).
             try {
-                await supabase.from('reportes').insert({ usuario_id: id, tipo: 'otro', estado: 'abierto', detalle: `Solicitud de eliminación de cuenta: ${state.user.email}` });
-                for (const tabla of ['resenas', 'videos', 'favoritos', 'quiero_ir', 'guardados']) await supabase.from(tabla).delete().eq('usuario_id', id);
-                await supabase.from('seguidores').delete().eq('seguidor_id', id);
+                await borrarMisArchivos(id);
+                const { error } = await supabase.rpc('eliminar_mi_cuenta');
+                if (error) {
+                    // Si la función aún no existe en el servidor, se borra lo publicado y queda la solicitud para el administrador
+                    if (!/eliminar_mi_cuenta|function|404/i.test(error.message || '')) throw error;
+                    await supabase.from('reportes').insert({ usuario_id: id, tipo: 'otro', estado: 'abierto', detalle: `Solicitud de eliminación de cuenta: ${state.user.email}` });
+                    for (const tabla of ['resenas', 'videos', 'favoritos', 'quiero_ir', 'guardados']) await supabase.from(tabla).delete().eq('usuario_id', id);
+                    await supabase.from('seguidores').delete().eq('seguidor_id', id);
+                }
             } catch (err) {
                 return showToast('No se pudo completar. Inténtalo de nuevo o escríbenos.');
             }
             db.reviews = db.reviews.filter(r => r.usuario.id !== id);
+            db.videos = db.videos.filter(v => v.usuarioId !== id);
             closeSheet('deleteAccount');
-            showToast('Borramos tus reseñas, fotos y videos. Tu cuenta se elimina por completo en los próximos días.', 5000);
+            showToast('Tu cuenta y todo lo que publicaste fueron eliminados.', 5000);
             return logout();
         }
         db.reviews = db.reviews.filter(r => r.usuario.id !== id);

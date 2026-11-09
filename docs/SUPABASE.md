@@ -139,3 +139,26 @@ Con esos dos datos reemplazo la capa de datos de la demo (`src/data/store.js`) p
 
 - El plan gratis no incluye respaldos automáticos descargables. Mientras tanto, usa **Panel admin → Usuarios y datos → Descargar respaldo** cada semana, o `supabase db dump` desde tu computador.
 - El plan Pro incluye respaldos diarios.
+
+## 10. Actualizaciones de la base de datos
+
+Se ejecutan **una sola vez, en orden**, en **SQL Editor → New query → pegar todo → Run**:
+
+1. `supabase/actualizacion-2.sql`: métricas de cada local, manual de decisiones, vigencia de promociones y cierre automático del mes.
+2. `supabase/actualizacion-3.sql`: Top 50 de clientes por local con correo mensual y borrado automático, estadísticas mensuales sin datos personales, privacidad de los perfiles (los demás solo ven nombre, @usuario y foto), "Eliminar mi cuenta" inmediato y limpieza de datos antiguos.
+
+Ambas se pueden volver a ejecutar sin romper nada (usan `if not exists` / `create or replace`).
+
+## 11. Correo mensual del Top 50 a los locales (Resend)
+
+El día 1 de cada mes a las 10:00 se envía a cada local con correo registrado (Panel → Locales → "Contacto y Top 50 de clientes") su Top 50 de clientes del mes anterior. Lo hace la función `supabase/functions/enviar-top50`.
+
+1. Crea una cuenta gratis en [resend.com](https://resend.com) (3.000 correos al mes) y en **API Keys** crea una clave.
+2. En Supabase: **Edge Functions → Secrets** agrega:
+   - `RESEND_API_KEY`: la clave de Resend.
+   - `CORREO_ADMIN`: tu correo (recibe una copia de cada envío).
+3. **Modo prueba:** sin dominio propio, Resend solo deja enviar a tu propio correo. Mientras no agregues `REMITENTE`, todos los correos te llegan a ti (con el asunto "[PRUEBA para correo@local.cl]") para que los revises o los reenvíes.
+4. **Envío real:** compra un dominio (ej. `mesagourmet.cl` en NIC Chile), verifícalo en Resend (**Domains**, copiando los registros DNS que te muestra) y agrega el secreto `REMITENTE` = `Mesa Gourmet <top50@mesagourmet.cl>`.
+5. La función se publica sola con GitHub Actions si está el secreto `SUPABASE_ACCESS_TOKEN` en GitHub (ver `.github/workflows/funciones.yml`). Debe quedar **sin verificación de JWT** (la propia función solo envía meses cerrados y nunca dos veces al mismo local).
+
+En **Panel → Top y clientes → Correo mensual a los locales** ves qué se envió, puedes enviar los pendientes o reenviar, y si aún no configuras Resend, copiar la lista o abrirla en tu correo.

@@ -71,7 +71,7 @@ function localDesdeFila(l, extra) {
 }
 
 function usuarioDesdePerfil(p) {
-    return p ? { id: p.id, nombre: p.nombre, username: p.username, avatarUrl: p.avatar_url || null } : { id: '?', nombre: 'Usuario', username: '' };
+    return p ? { id: p.id, nombre: p.nombre, username: p.username, avatarUrl: p.avatar_url || null, perfilPublico: p.perfil_publico !== false } : { id: '?', nombre: 'Usuario', username: '' };
 }
 
 function resenaDesdeFila(r, misLikes, misFotoLikes, uid) {
@@ -106,7 +106,7 @@ export async function cargarTodo({ admin = false } = {}) {
         conCuenta(supabase.from('eventos').select('*')),
         conCuenta(supabase.from('promociones').select('*')),
         lista(supabase.from('patrocinios').select('*').order('hasta', { ascending: false })),
-        lista(supabase.from('resenas').select('*, autor:perfiles!resenas_usuario_id_fkey(id, nombre, username, avatar_url), resena_fotos(*)').order('creado_at', { ascending: false }).limit(1000)),
+        lista(supabase.from('resenas').select('*, autor:perfiles!resenas_usuario_id_fkey(id, nombre, username, avatar_url, perfil_publico), resena_fotos(*)').order('creado_at', { ascending: false }).limit(1000)),
         conCuenta(supabase.from('resena_likes').select('resena_id').eq('usuario_id', uid)),
         conCuenta(supabase.from('foto_likes').select('foto_id').eq('usuario_id', uid)),
         lista(supabase.from('videos').select('*, autor:perfiles!videos_usuario_id_fkey(username)').order('creado_at', { ascending: false }).limit(300)),
@@ -184,7 +184,8 @@ export async function cargarTodo({ admin = false } = {}) {
 export async function cargarUsuario(session) {
     const uid = session.user.id;
     const [perfiles, favoritos, quiero, siguiendo, guardados, miTop50] = await Promise.all([
-        lista(supabase.from('perfiles').select('*').eq('id', uid)),
+        // El perfil completo (apellido, preferencias, consentimientos) solo lo puede leer su dueño, con mi_perfil()
+        lista(supabase.rpc('mi_perfil')).catch(() => lista(supabase.from('perfiles').select('*').eq('id', uid))),
         lista(supabase.from('favoritos').select('local_id').eq('usuario_id', uid)),
         lista(supabase.from('quiero_ir').select('local_id').eq('usuario_id', uid)),
         lista(supabase.from('seguidores').select('seguido_id').eq('seguidor_id', uid)),
@@ -238,7 +239,9 @@ function filaDePerfil(u) {
     return {
         nombre: u.nombre, apellido: u.apellido || null, comparte_con_locales: !!u.comparteConLocales,
         username: u.username, avatar_url: u.avatarUrl || null, producto_favorito: u.productoFavorito || null,
-        preferencias: { ...(u.preferencias || {}), bienvenidaVista: !!u.bienvenidaVista }
+        preferencias: { ...(u.preferencias || {}), bienvenidaVista: !!u.bienvenidaVista },
+        // Columna pública aparte para que los demás sepan si pueden ver el perfil (las preferencias son privadas)
+        perfil_publico: (u.preferencias || {}).perfilPublico !== false
     };
 }
 

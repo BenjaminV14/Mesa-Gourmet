@@ -20,6 +20,21 @@ export function openPublicProfile(userId) {
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     const u = resenas[0]?.usuario;
     if (!u) return;
+    // Perfil privado (Perfil → Privacidad): sus reseñas siguen en la ficha de cada local, pero no se muestra su perfil
+    if (u.perfilPublico === false) {
+        return openSheet({
+            id: 'publicProfile',
+            title: '',
+            body: `<div class="public-profile">
+                <div class="public-head">
+                    <span class="profile-avatar-large">${avatarContent(u)}</span>
+                    <div class="public-names"><h2>${esc(u.nombre)}</h2><p>@${esc(u.username || '')}</p></div>
+                </div>
+                <p class="muted center">🔒 Este perfil es privado.</p>
+            </div>`,
+            actions: [{ label: 'Cerrar', action: 'close-sheet', variant: 'ghost' }]
+        });
+    }
     const nivel = calculateLevel(resenas.length);
     const locales = new Set(resenas.map(r => r.localId)).size;
     const fotos = resenas.reduce((n, r) => n + (r.fotos || []).length, 0);
