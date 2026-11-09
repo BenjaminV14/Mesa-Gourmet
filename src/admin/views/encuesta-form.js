@@ -62,6 +62,7 @@ export function crearLocal(nombre, extra = {}) {
 /** Borra el local con sus reseñas y videos (lo usan Locales y Encuesta) */
 export function eliminarLocal(local) {
     db.locales = db.locales.filter(l => l.id !== local.id);
+    db.localesCerrados = (db.localesCerrados || []).filter(l => l.id !== local.id);
     db.reviews = db.reviews.filter(r => r.localId !== local.id);
     db.videos = db.videos.filter(v => v.localId !== local.id);
     persist();

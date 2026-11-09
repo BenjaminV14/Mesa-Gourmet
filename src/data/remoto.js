@@ -50,7 +50,8 @@ function localDesdeFila(l, extra) {
         horasPeak: l.horas_peak || '', diasPeak: l.dias_peak || '',
         caracteristicas: l.caracteristicas || [], caracteristicasDetalle: l.caracteristicas_detalle || {},
         etiquetas: l.etiquetas || [], notaComida: Number(l.nota_comida) || 0, notaServicio: Number(l.nota_servicio) || 0,
-        distinciones: [], activo: l.activo, beneficioTop50: l.beneficio_top50 || '',
+        distinciones: [], activo: l.activo !== false, cerradoAt: l.cerrado_at || null, motivoCierre: l.motivo_cierre || '',
+        beneficioTop50: l.beneficio_top50 || '',
         ...(extra.contactos?.[l.id] ? { contacto: extra.contactos[l.id] } : {}),
         menu: extra.platos.filter(p => p.local_id === l.id).map(p => ({
             nombre: p.nombre, categoria: p.categoria, precio: p.precio, imagen: p.imagen_url || '',
@@ -147,7 +148,10 @@ export async function cargarTodo({ admin = false } = {}) {
     const misVideoLikes = new Set(vLikes.map(x => x.video_id));
 
     const contactosPorLocal = Object.fromEntries(contactos.map(c => [c.local_id, { email: c.email || '', nombre: c.contacto || '', recibeTop50: c.recibe_top50 !== false }]));
-    db.locales = locales.map(l => normalizarCaracteristicas(localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal, contactos: contactosPorLocal })));
+    const todos = locales.map(l => normalizarCaracteristicas(localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal, contactos: contactosPorLocal })));
+    // Los locales cerrados quedan archivados aparte (no aparecen en la app, pero sus reseñas siguen siendo de sus autores)
+    db.locales = todos.filter(l => l.activo);
+    db.localesCerrados = todos.filter(l => !l.activo);
     db.reviews = resenas.map(r => resenaDesdeFila(r, misLikes, misFotoLikes, uid));
     db.videos = videos.map(v => videoDesdeFila(v, misVideoLikes, uid));
     db.cierres = cierres.map(c => ({ mes: c.mes, fecha: c.creado_at, distinciones: c.distinciones || {}, clientes: c.clientes || null }));
@@ -304,7 +308,8 @@ function filaDeLocal(l) {
         capacidad: l.capacidad || null, ambiente: l.ambiente || null, tematica: l.tematica || null,
         horas_peak: l.horasPeak || null, dias_peak: l.diasPeak || null, caracteristicas: l.caracteristicas || [],
         caracteristicas_detalle: l.caracteristicasDetalle || {}, etiquetas: l.etiquetas || [],
-        beneficio_top50: l.beneficioTop50 || null
+        beneficio_top50: l.beneficioTop50 || null,
+        activo: l.activo !== false, cerrado_at: l.cerradoAt || null, motivo_cierre: l.motivoCierre || null
     };
 }
 const contactoDe = l => l.contacto ? { local_id: l.id, email: l.contacto.email || null, contacto: l.contacto.nombre || null, recibe_top50: l.contacto.recibeTop50 !== false } : null;
@@ -322,17 +327,21 @@ const patrociniosDe = l => !l.patrocinio ? [] : [
     ...(l.patrocinio.historial || []).map(h => ({ local_id: l.id, plan: l.patrocinio.plan, precio: l.patrocinio.precio, desde: h.desde, hasta: h.hasta, pagado: true }))
 ];
 
+const todosLosLocales = () => [...db.locales, ...(db.localesCerrados || [])];
+
 function tomarFoto() {
     const uid = state.user?.id;
     const mapa = (items, clave, valor) => new Map(items.map(x => [clave(x), JSON.stringify(valor(x))]));
+    // Abiertos y archivados: archivar un local NO es borrarlo (si no, se borrarían sus reseñas en cascada)
+    const todos = todosLosLocales();
     return {
-        locales: mapa(db.locales, l => l.id, filaDeLocal),
-        menus: mapa(db.locales, l => l.id, platosDe),
-        eventos: mapa(db.locales, l => l.id, eventosDe),
-        promos: mapa(db.locales, l => l.id, promosDe),
-        patrocinios: mapa(db.locales, l => l.id, patrociniosDe),
-        encuestas: mapa(db.locales, l => l.id, l => l.encuesta?.respuestas || null),
-        contactos: mapa(db.locales, l => l.id, contactoDe),
+        locales: mapa(todos, l => l.id, filaDeLocal),
+        menus: mapa(todos, l => l.id, platosDe),
+        eventos: mapa(todos, l => l.id, eventosDe),
+        promos: mapa(todos, l => l.id, promosDe),
+        patrocinios: mapa(todos, l => l.id, patrociniosDe),
+        encuestas: mapa(todos, l => l.id, l => l.encuesta?.respuestas || null),
+        contactos: mapa(todos, l => l.id, contactoDe),
         resenas: mapa(db.reviews, r => r.id, r => ({ estado: r.estado, fotos: (r.fotos || []).map(f => [f.id, !!f.verificada]) })),
         resenaLikes: new Set(db.reviews.filter(r => (r.likedBy || []).includes(uid)).map(r => r.id)),
         fotoLikes: new Set(db.reviews.flatMap(r => r.fotos || []).filter(f => (f.likedBy || []).includes(uid)).map(f => f.id)),
@@ -434,8 +443,8 @@ async function sincronizarDatos() {
     }
 
     if (esAdmin) {
-        // Locales y todo lo que cuelga de ellos
-        for (const l of db.locales) {
+        // Locales (abiertos y archivados) y todo lo que cuelga de ellos
+        for (const l of todosLosLocales()) {
             const id = l.id;
             if (l.imagen?.startsWith('data:')) {
                 // Logo subido desde el panel: se guarda como archivo y la ficha queda con su dirección

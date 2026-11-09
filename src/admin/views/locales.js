@@ -1,5 +1,5 @@
 // Locales: crear, editar y eliminar la ficha de cada local
-import { db, persist, getLocal } from '../../data/store.js';
+import { db, persist, getLocal, cerrarLocal, reactivarLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc, safeUrl } from '../../utils/html.js';
 import { DIAS_SEMANA, estadoHorario } from '../../utils/time.js';
@@ -62,7 +62,33 @@ export function renderLocales() {
                 </tbody>
             </table>
         </div>
+        ${cerradosHtml()}
     `;
+}
+
+/** Locales que cerraron: archivados, no aparecen en la app, pero conservan sus reseñas y su historial */
+function cerradosHtml() {
+    const cerrados = db.localesCerrados || [];
+    if (!cerrados.length) return '';
+    return `
+        <section class="adm-card" style="margin-top:18px">
+            <h2>🔒 Locales cerrados (archivados)</h2>
+            <p class="adm-help">No aparecen en la app (inicio, mapa, búsqueda, rankings ni feed). Sus reseñas se conservan: cada autor las sigue viendo
+            en su perfil como "Local cerrado" y le siguen contando para su nivel. Si el local reabre, reactívalo y vuelve con todo su historial.</p>
+            <div class="adm-table-wrap"><table class="adm-table">
+                <thead><tr><th>Local</th><th>Archivado el</th><th>Reseñas</th><th></th></tr></thead>
+                <tbody>${cerrados.map(l => `
+                    <tr>
+                        <td><div class="adm-local-cell"><img src="${esc(safeUrl(l.imagen))}" alt=""><b>${esc(l.nombre)}</b></div></td>
+                        <td>${l.cerradoAt ? esc(new Date(l.cerradoAt).toLocaleDateString('es-CL')) : '—'}</td>
+                        <td>${db.reviews.filter(r => r.localId === l.id).length}</td>
+                        <td class="adm-row-actions">
+                            <button class="adm-btn small" data-action="adm-local-reabrir" data-id="${l.id}">Reactivar</button>
+                            <button class="adm-btn small danger" data-action="adm-local-delete" data-id="${l.id}">Eliminar</button>
+                        </td>
+                    </tr>`).join('')}</tbody>
+            </table></div>
+        </section>`;
 }
 
 function renderForm(local) {
@@ -175,7 +201,10 @@ function renderForm(local) {
 
             <p class="adm-error" id="admLocalError" role="alert" hidden></p>
             <div class="adm-form-actions">
-                ${local ? `<button type="button" class="adm-btn danger" data-action="adm-local-delete" data-id="${l.id}">Eliminar local</button>` : '<span></span>'}
+                ${local ? `<span class="adm-row-actions">
+                    <button type="button" class="adm-btn" data-action="adm-local-cerrar" data-id="${l.id}" title="Lo saca de la app y conserva sus reseñas">🔒 El local cerró</button>
+                    <button type="button" class="adm-btn danger" data-action="adm-local-delete" data-id="${l.id}">Eliminar local</button>
+                </span>` : '<span></span>'}
                 <button type="submit" class="adm-btn primary">Guardar cambios</button>
             </div>
         </form>
@@ -274,9 +303,30 @@ registerActions({
         const lunes = val(`f_h_${DIAS_SEMANA.indexOf('Lunes')}`);
         ORDEN_DIAS.forEach(dia => { document.getElementById(`f_h_${DIAS_SEMANA.indexOf(dia)}`).value = lunes; });
     },
+    'adm-local-cerrar': el => {
+        const local = getLocal(Number(el.dataset.id));
+        confirmDialog(`¿"${local.nombre}" cerró? Se saca de la app (inicio, mapa, búsqueda y rankings), pero se conservan sus reseñas,
+            que sus autores siguen viendo en su perfil. Puedes reactivarlo cuando quieras.`, () => {
+            cerrarLocal(local.id, 'Cerró');
+            persist();
+            editingId = null;
+            toast(`${local.nombre} archivado`);
+            rerender();
+        }, 'Archivar');
+    },
+    'adm-local-reabrir': el => {
+        const local = reactivarLocal(Number(el.dataset.id));
+        if (!local) return;
+        persist();
+        toast(`${local.nombre} volvió a la app`);
+        rerender();
+    },
     'adm-local-delete': el => {
         const local = getLocal(Number(el.dataset.id));
-        confirmDialog(`¿Eliminar "${local.nombre}"? También se borrarán sus reseñas y videos.`, () => {
+        const n = db.reviews.filter(r => r.localId === local.id).length;
+        confirmDialog(`¿Eliminar "${local.nombre}" para siempre? Se borrarán también sus ${n} reseña(s), fotos, videos y estadísticas,
+            y a sus autores les bajará el nivel. Si el local solo cerró, mejor usa "El local cerró" (lo archiva sin borrar nada).
+            Eliminar es solo para locales creados por error.`, () => {
             eliminarLocal(local);
             editingId = null;
             toast('Local eliminado');

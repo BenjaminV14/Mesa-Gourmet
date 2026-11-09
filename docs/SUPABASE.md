@@ -146,6 +146,7 @@ Se ejecutan **una sola vez, en orden**, en **SQL Editor → New query → pegar 
 
 1. `supabase/actualizacion-2.sql`: métricas de cada local, manual de decisiones, vigencia de promociones y cierre automático del mes.
 2. `supabase/actualizacion-3.sql`: Top 50 de clientes por local con correo mensual y borrado automático, estadísticas mensuales sin datos personales, privacidad de los perfiles (los demás solo ven nombre, @usuario y foto), "Eliminar mi cuenta" inmediato y limpieza de datos antiguos.
+3. `supabase/actualizacion-4.sql`: locales que cierran se archivan en vez de borrarse (no se pueden reseñar, no entran a rankings ni al Top 50, y sus reseñas se conservan para sus autores).
 
 Ambas se pueden volver a ejecutar sin romper nada (usan `if not exists` / `create or replace`).
 

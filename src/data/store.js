@@ -31,6 +31,9 @@ function freshData() {
     return {
         // En línea no hay datos de ejemplo: todo llega desde Supabase
         locales: remoto ? [] : buildSeedLocales(),
+        // Locales que cerraron: se archivan (no se borran) para no perder las reseñas de los usuarios ni el historial.
+        // No aparecen en ninguna parte de la app, salvo en las reseñas propias de cada persona ("Local cerrado").
+        localesCerrados: [],
         reviews: remoto ? [] : buildSeedReviews(),
         videos: remoto ? [] : buildSeedVideos(),
         reports: [],
@@ -43,6 +46,7 @@ function freshData() {
 }
 
 export const db = readJson(STORAGE_KEY) || freshData();
+if (!Array.isArray(db.localesCerrados)) db.localesCerrados = [];
 
 let sincronizar = null;
 
@@ -115,20 +119,48 @@ export function clearSearchHistory() {
 
 // =================== CONSULTAS ===================
 
+/** Busca un local abierto o archivado (las reseñas antiguas necesitan el nombre del local cerrado) */
 export function getLocal(id) {
-    return db.locales.find(l => l.id === id) || null;
+    return db.locales.find(l => l.id === id) || (db.localesCerrados || []).find(l => l.id === id) || null;
+}
+
+/** ¿El local está archivado porque cerró? */
+export function estaCerrado(localId) {
+    return (db.localesCerrados || []).some(l => l.id === localId);
 }
 
 export function reviewsOfLocal(localId) {
     return db.reviews.filter(r => r.localId === localId && r.estado !== 'rechazada');
 }
 
+/** Reseñas publicadas de locales abiertos (las de locales cerrados solo las ve su autor, en su perfil) */
 export function publishedReviews() {
-    return db.reviews.filter(r => r.estado === 'publicada');
+    return db.reviews.filter(r => r.estado === 'publicada' && !estaCerrado(r.localId));
 }
 
 export function approvedVideos() {
-    return db.videos.filter(v => v.estado === 'aprobado');
+    return db.videos.filter(v => v.estado === 'aprobado' && !estaCerrado(v.localId));
+}
+
+/** Archiva un local que cerró: deja de aparecer en la app, pero se conservan sus reseñas e historial */
+export function cerrarLocal(id, motivo = '') {
+    const i = db.locales.findIndex(l => l.id === id);
+    if (i < 0) return null;
+    const [local] = db.locales.splice(i, 1);
+    Object.assign(local, { activo: false, cerradoAt: new Date().toISOString(), motivoCierre: motivo });
+    db.localesCerrados.push(local);
+    return local;
+}
+
+/** Vuelve a mostrar un local archivado (reabrió), con todas sus reseñas */
+export function reactivarLocal(id) {
+    const i = (db.localesCerrados || []).findIndex(l => l.id === id);
+    if (i < 0) return null;
+    const [local] = db.localesCerrados.splice(i, 1);
+    Object.assign(local, { activo: true, cerradoAt: null, motivoCierre: '' });
+    db.locales.push(local);
+    db.locales.sort((a, b) => a.id - b.id);
+    return local;
 }
 
 // Las notas se calculan al mostrar (ver metrics.js); esto solo existe por compatibilidad
