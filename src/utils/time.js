@@ -106,6 +106,14 @@ export function formatFechaEvento(iso) {
 }
 
 /** ¿La promoción está vigente hoy? (sin fechas = siempre; con "hasta" pasada desaparece sola) */
+/** "18:00–21:00 h", o "todo el día" si la promoción no tiene horario (los descuentos con tarjeta) */
+export function horarioPromo(p) {
+    if (!p.horaInicio && !p.horaFin) return 'todo el día';
+    return `${p.horaInicio || ''}–${p.horaFin || ''} h`;
+}
+
+export const esDescuentoTarjeta = p => p.tipo === 'tarjeta';
+
 export function promoVigente(p, hoy = new Date()) {
     const dia = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
     return (!p.desde || p.desde <= dia) && (!p.hasta || p.hasta >= dia);

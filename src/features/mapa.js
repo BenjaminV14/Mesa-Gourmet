@@ -12,7 +12,7 @@ import { registerActions } from '../ui/actions.js';
 import { estadoBadge, emptyState } from '../ui/cards.js';
 import { showToast } from '../ui/feedback.js';
 import { esc, safeUrl } from '../utils/html.js';
-import { estadoHorario, estaAbierto, formatFechaEvento, promoVigente } from '../utils/time.js';
+import { estadoHorario, estaAbierto, formatFechaEvento, promoVigente, horarioPromo } from '../utils/time.js';
 import { formatDistance } from '../utils/geo.js';
 import { isSponsored, distanceTo } from './sponsors.js';
 import { search } from './search.js';
@@ -191,7 +191,7 @@ function renderEventsPane() {
         ${promosHoy.length ? promosHoy.map(p => `
             <button class="promo-card is-clickable" data-action="open-local" data-id="${p.local.id}" data-tab="eventos">
                 <span class="promo-icon">${esc(p.icono || '🏷️')}</span>
-                <div><h4>${esc(p.descripcion)}</h4><p>${esc(p.local.nombre)} · ${esc(p.horaInicio)}–${esc(p.horaFin)} h</p></div>
+                <div><h4>${esc(p.descripcion)}</h4><p>${esc(p.local.nombre)} · ${esc(horarioPromo(p))}</p></div>
             </button>`).join('') : emptyState('🏷️', 'Hoy no hay promociones.')}
     `;
 }

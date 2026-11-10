@@ -372,3 +372,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
     .adm-attention li span:nth-child(2) { flex: 1 1 calc(100% - 40px); }
 }
 .adm-card .adm-import-preview .adm-table-wrap { margin: 0 -14px; }
+
+/* Selector de local con buscador (Eventos y promos) */
+.adm-local-picker .adm-search.small { max-width: none; margin-bottom: 0; padding: 8px 11px; font-size: 0.92rem; }
+.adm-local-picker .adm-select { width: 100%; }
+.adm-days .adm-link { margin-left: auto; }

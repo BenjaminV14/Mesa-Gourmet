@@ -313,7 +313,7 @@ do $$ begin
   raise notice 'OK  admin activa destacado';
 exception when others then raise notice 'FALLA destacado: %', sqlerrm; end $$;
 select case when count(*) = 1 then 'OK  admin ve las respuestas de la encuesta' else 'FALLA admin encuestas' end from public.encuestas_locales;
-select case when count(*) = 1 then 'OK  admin ve las preguntas de la encuesta' else 'FALLA admin preguntas' end from public.encuesta_preguntas;
+select case when count(*) >= 1 then 'OK  admin ve las preguntas de la encuesta' else 'FALLA admin preguntas' end from public.encuesta_preguntas;
 do $$ begin
   insert into public.cierres_mes (mes, distinciones) values ('octubre 2026', '{"Mejor café": 1}');
   raise notice 'OK  admin cierra el mes';

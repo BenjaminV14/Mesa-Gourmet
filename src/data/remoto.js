@@ -46,7 +46,7 @@ function localDesdeFila(l, extra) {
         tiktok: l.tiktok || '', facebook: l.facebook || '', website: l.website || '', cartaUrl: l.carta_url || '',
         descripcion: l.descripcion || '', imagen: l.imagen_url || '', lat: l.lat, lng: l.lng,
         horariosSemana: l.horarios || {}, horarioFeriados: l.horario_feriados || '', mediosPago: l.medios_pago || '',
-        capacidad: l.capacidad || '', ambiente: l.ambiente || '', tematica: l.tematica || '',
+        tematica: l.tematica || '',
         horasPeak: l.horas_peak || '', diasPeak: l.dias_peak || '',
         caracteristicas: l.caracteristicas || [], caracteristicasDetalle: l.caracteristicas_detalle || {},
         etiquetas: l.etiquetas || [], notaComida: Number(l.nota_comida) || 0, notaServicio: Number(l.nota_servicio) || 0,
@@ -61,7 +61,7 @@ function localDesdeFila(l, extra) {
         promociones: extra.promociones.filter(p => p.local_id === l.id).map(p => ({
             descripcion: p.descripcion, icono: p.icono || '🏷️', metodo: p.metodo || '', dias: p.dias || [],
             horaInicio: (p.hora_inicio || '').slice(0, 5), horaFin: (p.hora_fin || '').slice(0, 5),
-            desde: p.desde || '', hasta: p.hasta || ''
+            desde: p.desde || '', hasta: p.hasta || '', tipo: p.tipo || 'promo'
         })),
         patrocinio: ultimo ? {
             plan: ultimo.plan, precio: ultimo.precio, desde: ultimo.desde, hasta: ultimo.hasta, pagado: ultimo.pagado,
@@ -147,7 +147,7 @@ export async function cargarTodo({ admin = false } = {}) {
     const misFotoLikes = new Set(fLikes.map(x => x.foto_id));
     const misVideoLikes = new Set(vLikes.map(x => x.video_id));
 
-    const contactosPorLocal = Object.fromEntries(contactos.map(c => [c.local_id, { email: c.email || '', nombre: c.contacto || '', recibeTop50: c.recibe_top50 !== false }]));
+    const contactosPorLocal = Object.fromEntries(contactos.map(c => [c.local_id, { email: c.email || '', nombre: c.contacto || '', recibeTop50: c.recibe_top50 === true }]));
     const todos = locales.map(l => normalizarCaracteristicas(localDesdeFila(l, { platos, eventos, promociones, patrocinios, encuestas: encuestasPorLocal, contactos: contactosPorLocal })));
     // Los locales cerrados quedan archivados aparte (no aparecen en la app, pero sus reseñas siguen siendo de sus autores)
     db.locales = todos.filter(l => l.activo);
@@ -305,14 +305,15 @@ function filaDeLocal(l) {
         tiktok: l.tiktok || null, facebook: l.facebook || null, website: l.website || null, carta_url: l.cartaUrl || null,
         descripcion: l.descripcion || null, imagen_url: l.imagen || null, lat: Number(l.lat), lng: Number(l.lng),
         horarios: l.horariosSemana || {}, horario_feriados: l.horarioFeriados || null, medios_pago: l.mediosPago || null,
-        capacidad: l.capacidad || null, ambiente: l.ambiente || null, tematica: l.tematica || null,
+        // Capacidad y tipo de público son solo para el administrador: quedan en la encuesta, no en la tabla pública
+        capacidad: null, ambiente: null, tematica: l.tematica || null,
         horas_peak: l.horasPeak || null, dias_peak: l.diasPeak || null, caracteristicas: l.caracteristicas || [],
         caracteristicas_detalle: l.caracteristicasDetalle || {}, etiquetas: l.etiquetas || [],
         beneficio_top50: l.beneficioTop50 || null,
         activo: l.activo !== false, cerrado_at: l.cerradoAt || null, motivo_cierre: l.motivoCierre || null
     };
 }
-const contactoDe = l => l.contacto ? { local_id: l.id, email: l.contacto.email || null, contacto: l.contacto.nombre || null, recibe_top50: l.contacto.recibeTop50 !== false } : null;
+const contactoDe = l => l.contacto ? { local_id: l.id, email: l.contacto.email || null, contacto: l.contacto.nombre || null, recibe_top50: l.contacto.recibeTop50 === true } : null;
 const platosDe = l => (l.menu || []).filter(m => m.nombre).map((m, i) => ({
     local_id: l.id, nombre: m.nombre, categoria: m.categoria || 'Otros', precio: Math.max(0, Number(m.precio) || 0),
     imagen_url: m.imagen || null, es_bebida: !!m.isDrink, dietas: m.dietas || [], orden: i
@@ -320,7 +321,8 @@ const platosDe = l => (l.menu || []).filter(m => m.nombre).map((m, i) => ({
 const eventosDe = l => (l.eventos || []).map(e => ({ local_id: l.id, titulo: e.titulo, inicio: e.inicio, descripcion: e.descripcion || null }));
 const promosDe = l => (l.promociones || []).map(p => ({
     local_id: l.id, descripcion: p.descripcion, icono: p.icono || '🏷️', metodo: p.metodo || null, dias: p.dias || [],
-    hora_inicio: p.horaInicio || null, hora_fin: p.horaFin || null, desde: p.desde || null, hasta: p.hasta || null
+    hora_inicio: p.horaInicio || null, hora_fin: p.horaFin || null, desde: p.desde || null, hasta: p.hasta || null,
+    tipo: p.tipo === 'tarjeta' ? 'tarjeta' : 'promo'
 }));
 const patrociniosDe = l => !l.patrocinio ? [] : [
     { local_id: l.id, plan: l.patrocinio.plan, precio: l.patrocinio.precio, desde: l.patrocinio.desde, hasta: l.patrocinio.hasta, pagado: !!l.patrocinio.pagado },

@@ -8,7 +8,7 @@ import { estadoBadge, sponsoredBadge, emptyState, ratingStars } from '../ui/card
 import { esc, safeUrl, formatPrice } from '../utils/html.js';
 import { formatTelefono } from '../utils/text.js';
 import { registrarMetrica } from '../services/metricas.js';
-import { estadoHorario, DIAS_SEMANA, formatFechaEvento, promoVigente } from '../utils/time.js';
+import { estadoHorario, DIAS_SEMANA, formatFechaEvento, promoVigente, horarioPromo, esDescuentoTarjeta } from '../utils/time.js';
 import { requireAccount } from './auth.js';
 import { reviewCard } from './review-card.js';
 import { openReviewForm } from './review-form.js';
@@ -19,9 +19,10 @@ const FEATURE_ICONS = {
     'Seguridad Completa': '🛡️', 'Calefacción': '🔥', 'Aire Acondicionado / Ventilación': '❄️',
     'Venta de Alcohol': '🍺', 'Ingreso de Mascotas': '🐾',
     'Apto para Fumadores': '🚬', 'Acepta Edenred / BAES': '💳', 'Acceso Discapacitados': '♿',
-    'Estacionamiento': '🚗', 'Bicicletero': '🚲', 'Baño / WC': '🚻', 'WiFi Disponible': '📶', 'Terraza': '🪑', 'Delivery': '🛵',
-    'Apto para menores de edad': '👨‍👩‍👧', 'Acepta reservas': '📅', 'Arriendo para eventos': '🎉', 'Segundo piso': '🪜',
-    'Barra': '🍸', 'Pedidos para llevar': '🥡', 'Consumo en el local': '🍽️'
+    'Estacionamiento': '🚗', 'Bicicletero': '🚲', 'Baño / WC': '🚻', 'WiFi Disponible': '📶', 'Terraza': '🪑',
+    'Delivery propio': '🛵', 'Delivery por apps': '📲', 'Solo mayores de 18': '🔞', 'Espacio para niños': '🧸',
+    'Música en vivo': '🎶', 'Enchufes para cargar': '🔌', 'Acepta reservas': '📅', 'Arriendo para eventos': '🎉', 'Segundo piso': '🪜',
+    'Barra de tragos': '🍸', 'Pedidos para llevar': '🥡', 'Consumo en el local': '🍽️'
 };
 
 let currentTab = 'info';
@@ -305,7 +306,18 @@ export function eventosVigentes(local, now = Date.now()) {
 
 function renderEventos(local) {
     const eventos = eventosVigentes(local);
-    const promos = (local.promociones || []).filter(p => promoVigente(p));
+    const vigentes = (local.promociones || []).filter(p => promoVigente(p));
+    const promos = vigentes.filter(p => !esDescuentoTarjeta(p));
+    const tarjetas = vigentes.filter(esDescuentoTarjeta);
+    const tarjeta = p => `
+                <div class="promo-card ${promoActiva(p) ? 'is-active' : ''}">
+                    <span class="promo-icon">${esc(p.icono || '💳')}</span>
+                    <div>
+                        <h4>${esc(p.descripcion)}</h4>
+                        <p>${(p.dias || []).map(d => DIAS_SEMANA[d]).join(', ')} · ${esc(horarioPromo(p))}${p.hasta ? ` · hasta el ${esc(p.hasta.split('-').reverse().join('-'))}` : ''}</p>
+                    </div>
+                    ${promoActiva(p) ? '<span class="badge estado-abierto">Hoy</span>' : ''}
+                </div>`;
 
     return `
         <h3 class="section-title">Cartelera</h3>
@@ -326,13 +338,17 @@ function renderEventos(local) {
                     <span class="promo-icon">${esc(p.icono || '🏷️')}</span>
                     <div>
                         <h4>${esc(p.descripcion)}</h4>
-                        <p>${(p.dias || []).map(d => DIAS_SEMANA[d]).join(', ')} · ${esc(p.horaInicio || '')}–${esc(p.horaFin || '')} h</p>
+                        <p>${(p.dias || []).map(d => DIAS_SEMANA[d]).join(', ')} · ${esc(horarioPromo(p))}</p>
                         ${p.metodo ? `<p>Pago: ${esc(p.metodo)}</p>` : ''}
                     </div>
                     ${promoActiva(p) ? '<span class="badge estado-abierto">Activa ahora</span>' : ''}
                 </div>
             `).join('')}
         </div>` : emptyState('🏷️', 'Este local no tiene promociones vigentes.')}
+
+        ${tarjetas.length ? `
+        <h3 class="section-title">Descuentos con tarjetas</h3>
+        <div class="promo-list">${tarjetas.map(tarjeta).join('')}</div>` : ''}
     `;
 }
 

@@ -1,5 +1,6 @@
 // Reportes para locales: cuánta gente le llevó la app a cada local en un mes, para mostrárselo al dueño.
 // Visitas a la ficha, contactos (WhatsApp, llamadas, cómo llegar), reseñas, fotos, "quiero ir", favoritos y clientes VIP.
+// Estos números son parte del plan de patrocinio: solo se comparten con locales que pagan.
 import { db, getLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
@@ -18,6 +19,17 @@ const mesDe = offset => { const d = new Date(); return new Date(d.getFullYear(),
 const etiquetaMes = d => `${MESES[d.getMonth()]} ${d.getFullYear()}`;
 const enMes = (fecha, d) => { const f = new Date(fecha); return f.getFullYear() === d.getFullYear() && f.getMonth() === d.getMonth(); };
 const hastaFinDe = (fecha, d) => new Date(fecha) < new Date(d.getFullYear(), d.getMonth() + 1, 1);
+
+/** ¿El local tenía un patrocinio pagado que cubre (parte de) ese mes? */
+export function patrocinadoEnMes(local, d) {
+    const p = local.patrocinio;
+    if (!p) return false;
+    const ini = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const fin = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const finIso = `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`;
+    const cruza = x => x.desde && x.hasta && x.desde <= finIso && x.hasta >= ini;
+    return (p.pagado && cruza(p)) || (p.historial || []).some(cruza);
+}
 
 /** Números de un local en el mes de la fecha d */
 export function numerosDelMes(id, d) {
@@ -112,6 +124,7 @@ function reporteLocal(local) {
                     <button class="adm-btn small" data-action="adm-crec-mes" data-dir="1" ${mesOffset >= 0 ? 'disabled' : ''} aria-label="Mes siguiente">→</button>
                 </div>
             </div>
+            ${patrocinadoEnMes(local, d) ? '' : '<p class="adm-warning adm-no-print">🔒 Este local no tiene patrocinio pagado en este mes: estos números son solo para ti. Las estadísticas se comparten solo con los locales que pagan el patrocinio.</p>'}
             ${sinMetricas ? '<p class="adm-warning adm-no-print">Aún no hay visitas ni clics registrados para este local. Se empiezan a contar desde que la app está en línea (y ejecutaste la actualización 2 de la base de datos).</p>' : ''}
             <h3 class="adm-subtitle">Gente que la app llevó al local</h3>
             <div class="adm-kpis">
@@ -135,7 +148,7 @@ function reporteLocal(local) {
                 ${tile('VIP este mes', vips.length, undefined)}
             </div>
             ${tendencia(local.id)}
-            <div class="adm-form-actions adm-no-print">
+            <div class="adm-form-actions adm-no-print" ${patrocinadoEnMes(local, d) ? '' : 'style="display:none"'}>
                 <button class="adm-btn" data-action="adm-crec-copiar">📋 Copiar resumen para WhatsApp</button>
                 <button class="adm-btn primary" data-action="adm-crec-imprimir">🖨️ Imprimir o guardar PDF</button>
             </div>
@@ -154,7 +167,7 @@ function tablaTodos() {
             <thead><tr><th>Local</th><th>Visitas ficha</th><th>Contactos</th><th>Cómo llegar</th><th>Reseñas</th><th>Quieren ir</th><th></th></tr></thead>
             <tbody>${lista.map(({ l, n }) => `
                 <tr>
-                    <td><b>${esc(l.nombre)}</b></td><td>${n.vistas}</td><td>${n.whatsapp + n.llamar}</td><td>${n.comoLlegar}</td>
+                    <td><b>${esc(l.nombre)}</b>${patrocinadoEnMes(l, d) ? ' <span title="Patrocinio pagado">⭐</span>' : ''}</td><td>${n.vistas}</td><td>${n.whatsapp + n.llamar}</td><td>${n.comoLlegar}</td>
                     <td>${n.resenas}</td><td>${n.quieroIr}</td>
                     <td><button class="adm-btn small" data-action="adm-crec-ver" data-id="${l.id}">Ver reporte</button></td>
                 </tr>`).join('')}
@@ -168,7 +181,7 @@ export function renderCrecimiento() {
     return `
         <h1 class="adm-title">Reportes para locales</h1>
         <p class="adm-help">Cuánta gente le llevó la app a cada local: visitas a su ficha, contactos, reseñas y quiénes quieren ir.
-        Elige un local para ver su reporte del mes y compártelo con el dueño.</p>
+        Estos números son parte del <b>plan de patrocinio</b>: compártelos solo con los locales que lo pagan (marcados con ⭐).</p>
         ${local ? reporteLocal(local) : ''}
         <section class="adm-card adm-no-print">
             <h2>Todos los locales · ${esc(etiquetaMes(mesDe(mesOffset)))}</h2>

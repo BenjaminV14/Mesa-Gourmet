@@ -1,10 +1,11 @@
-// Eventos (cartelera) y promociones de todos los locales, con buscador.
+// Eventos (cartelera), promociones y descuentos con tarjetas de todos los locales, con buscador.
 // Los eventos pasados y las promociones vencidas dejan de mostrarse solos en la app.
+// Los descuentos con tarjeta se guardan como promociones con tipo 'tarjeta' (todo el día, sin horario).
 import { db, persist, getLocal } from '../../data/store.js';
 import { registerActions } from '../../ui/actions.js';
 import { esc } from '../../utils/html.js';
 import { normalize } from '../../utils/text.js';
-import { DIAS_SEMANA, formatFechaEvento, promoVigente } from '../../utils/time.js';
+import { DIAS_SEMANA, formatFechaEvento, promoVigente, horarioPromo, esDescuentoTarjeta } from '../../utils/time.js';
 import { field, textarea, val, toast, confirmDialog, emptyRow } from '../ui.js';
 import { nuevoId } from '../../utils/id.js';
 
@@ -35,24 +36,41 @@ function listaEventos() {
             ${verPasados ? `<ul class="adm-list is-past">${pasados.map(fila).join('')}</ul>` : ''}` : ''}`;
 }
 
-function listaPromos() {
+function listaPromos(tarjetas = false) {
+    // i = posición en local.promociones (para eliminar), antes de separar promociones y descuentos
     const todas = db.locales.flatMap(l => (l.promociones || []).map((p, i) => ({ ...p, i, local: l })))
+        .filter(p => esDescuentoTarjeta(p) === tarjetas)
         .filter(p => coincide(p.descripcion, p.metodo, p.local.nombre));
     const estado = p => promoVigente(p) ? '<span class="adm-pill ok">Vigente</span>'
         : (p.hasta && p.hasta < new Date().toISOString().slice(0, 10)) ? '<span class="adm-pill muted">Vencida</span>' : '<span class="adm-pill info">Programada</span>';
     return todas.length ? `<ul class="adm-list">${todas.map(p => `
         <li>
             <div><b>${esc(p.icono || '🏷️')} ${esc(p.descripcion)}</b> ${estado(p)}
-                <small>${esc(p.local.nombre)} · ${(p.dias || []).map(d => DIAS_SEMANA[d].slice(0, 3)).join(', ')} · ${esc(p.horaInicio || '')}–${esc(p.horaFin || '')}${p.metodo ? ` · ${esc(p.metodo)}` : ''}${p.desde || p.hasta ? ` · ${p.desde ? `desde ${esc(p.desde)}` : ''} ${p.hasta ? `hasta ${esc(p.hasta)}` : ''}` : ' · sin fecha de término'}</small></div>
+                <small>${esc(p.local.nombre)} · ${(p.dias || []).map(d => DIAS_SEMANA[d].slice(0, 3)).join(', ')} · ${esc(horarioPromo(p))}${p.metodo ? ` · ${esc(p.metodo)}` : ''}${p.desde || p.hasta ? ` · ${p.desde ? `desde ${esc(p.desde)}` : ''} ${p.hasta ? `hasta ${esc(p.hasta)}` : ''}` : ' · sin fecha de término'}</small></div>
             <button class="adm-btn small danger" data-action="adm-promo-delete" data-local="${p.local.id}" data-index="${p.i}">Eliminar</button>
-        </li>`).join('')}</ul>` : emptyRow(busqueda ? 'Ninguna promoción coincide con la búsqueda.' : 'Sin promociones.');
+        </li>`).join('')}</ul>` : emptyRow(busqueda ? 'Nada coincide con la búsqueda.' : tarjetas ? 'Sin descuentos con tarjetas.' : 'Sin promociones.');
 }
+
+// Selector de local con buscador: escribes parte del nombre y la lista se reduce
+function selectorLocal(id) {
+    const opciones = db.locales.map(l => `<option value="${l.id}" ${l.id === localId ? 'selected' : ''}>${esc(l.nombre)}</option>`).join('');
+    return `
+        <div class="adm-field full adm-local-picker">
+            <span id="${id}_lbl">Local</span>
+            <input type="search" class="adm-search small" placeholder="Buscar local…" data-input="adm-ev-filtro-local" data-target="${id}" aria-label="Buscar local" autocomplete="off">
+            <select id="${id}" class="adm-select" aria-labelledby="${id}_lbl">${opciones}</select>
+        </div>`;
+}
+
+const diasHtml = pref => `<fieldset class="adm-days full"><legend>Días</legend>
+    ${[1, 2, 3, 4, 5, 6, 0].map(d => `<label><input type="checkbox" id="${pref}_d_${d}"> ${DIAS_SEMANA[d].slice(0, 3)}</label>`).join('')}
+    <button type="button" class="adm-link" data-action="adm-ev-todos-dias" data-pref="${pref}">Todos</button>
+</fieldset>`;
+const diasMarcados = pref => [0, 1, 2, 3, 4, 5, 6].filter(d => document.getElementById(`${pref}_d_${d}`).checked);
 
 export function renderEventos() {
     if (localId === null && db.locales.length) localId = db.locales[0].id;
     if (!db.locales.length) return emptyRow('Primero crea un local.');
-    const opciones = db.locales.map(l => `<option value="${l.id}" ${l.id === localId ? 'selected' : ''}>${esc(l.nombre)}</option>`).join('');
-
     return `
         <div class="adm-head">
             <h1 class="adm-title">Eventos y promociones</h1>
@@ -70,11 +88,17 @@ export function renderEventos() {
             <div id="promoLista">${listaPromos()}</div>
         </section>
 
+        <section class="adm-card">
+            <h2>Descuentos con tarjetas</h2>
+            <p class="adm-help">Descuentos por pagar con un banco o tarjeta (ej: 20% con Banco Estado los martes). Se muestran en la ficha del local, en su propia sección.</p>
+            <div id="tarjetaLista">${listaPromos(true)}</div>
+        </section>
+
         <div class="adm-two">
             <section class="adm-card">
                 <h2>Agregar evento</h2>
                 <form id="admEventForm" class="adm-grid adm-inline-form" novalidate>
-                    <label class="adm-field full" for="ev_local"><span>Local</span><select id="ev_local" class="adm-select">${opciones}</select></label>
+                    ${selectorLocal('ev_local')}
                     ${field('Título del evento', 'ev_titulo', '', { placeholder: 'Ej: Noche de jazz', full: true })}
                     ${field('Fecha y hora', 'ev_inicio', '', { type: 'datetime-local', full: true })}
                     ${textarea('Descripción', 'ev_desc', '', { rows: 2 })}
@@ -84,7 +108,7 @@ export function renderEventos() {
             <section class="adm-card">
                 <h2>Agregar promoción</h2>
                 <form id="admPromoForm" class="adm-grid adm-inline-form" novalidate>
-                    <label class="adm-field full" for="pr_local"><span>Local</span><select id="pr_local" class="adm-select">${opciones}</select></label>
+                    ${selectorLocal('pr_local')}
                     ${field('Descripción', 'pr_desc', '', { placeholder: 'Ej: 2x1 en schop', full: true })}
                     ${field('Ícono (emoji)', 'pr_icono', '🏷️', { attrs: 'maxlength="4"' })}
                     ${field('Medio de pago', 'pr_metodo', '', { placeholder: 'Ej: Débito Banco Estado' })}
@@ -92,10 +116,21 @@ export function renderEventos() {
                     ${field('Hasta (hora)', 'pr_fin', '21:00', { type: 'time' })}
                     ${field('Vigente desde (fecha)', 'pr_desde', '', { type: 'date' })}
                     ${field('Vigente hasta (fecha)', 'pr_hasta', '', { type: 'date' })}
-                    <fieldset class="adm-days full"><legend>Días</legend>
-                        ${[1, 2, 3, 4, 5, 6, 0].map(d => `<label><input type="checkbox" id="pr_d_${d}"> ${DIAS_SEMANA[d].slice(0, 3)}</label>`).join('')}
-                    </fieldset>
+                    ${diasHtml('pr')}
                     <div class="adm-form-actions full"><span></span><button class="adm-btn primary" type="submit">Agregar promoción</button></div>
+                </form>
+            </section>
+            <section class="adm-card">
+                <h2>Agregar descuento con tarjeta</h2>
+                <form id="admTarjetaForm" class="adm-grid adm-inline-form" novalidate>
+                    ${selectorLocal('tj_local')}
+                    ${field('Banco o tarjeta', 'tj_banco', '', { placeholder: 'Ej: Banco Estado, Tarjeta Cencosud' })}
+                    ${field('Descuento', 'tj_desc', '', { placeholder: 'Ej: 20%' })}
+                    ${field('Condiciones (opcional)', 'tj_cond', '', { placeholder: 'Ej: tope $10.000, solo crédito', full: true })}
+                    ${field('Vigente desde (fecha)', 'tj_desde', '', { type: 'date' })}
+                    ${field('Vigente hasta (fecha)', 'tj_hasta', '', { type: 'date' })}
+                    ${diasHtml('tj')}
+                    <div class="adm-form-actions full"><span></span><button class="adm-btn primary" type="submit">Agregar descuento</button></div>
                 </form>
             </section>
         </div>
@@ -107,6 +142,23 @@ registerActions({
         busqueda = el.value;
         document.getElementById('evLista').innerHTML = listaEventos();
         document.getElementById('promoLista').innerHTML = listaPromos();
+        document.getElementById('tarjetaLista').innerHTML = listaPromos(true);
+    },
+    'adm-ev-filtro-local': el => {
+        const select = document.getElementById(el.dataset.target);
+        const q = normalize(el.value.trim());
+        const actual = Number(select.value);
+        const lista = db.locales.filter(l => !q || normalize(l.nombre).includes(q));
+        select.innerHTML = lista.length
+            ? lista.map(l => `<option value="${l.id}">${esc(l.nombre)}</option>`).join('')
+            : '<option value="">Ningún local coincide</option>';
+        // Se mantiene el elegido si sigue en la lista; si no, queda el primero que coincide
+        if (lista.some(l => l.id === actual)) select.value = String(actual);
+    },
+    'adm-ev-todos-dias': el => {
+        const cajas = [0, 1, 2, 3, 4, 5, 6].map(d => document.getElementById(`${el.dataset.pref}_d_${d}`));
+        const marcar = cajas.some(c => !c.checked);
+        cajas.forEach(c => { c.checked = marcar; });
     },
     'adm-ev-pasados': () => { verPasados = !verPasados; document.getElementById('evLista').innerHTML = listaEventos(); },
     'adm-ev-delete': el => {
@@ -133,8 +185,9 @@ document.addEventListener('submit', e => {
         const titulo = val('ev_titulo');
         const inicio = val('ev_inicio');
         if (!titulo || !inicio) return toast('Escribe el título y la fecha del evento.', 'error');
-        localId = Number(val('ev_local'));
-        const local = getLocal(localId);
+        const local = getLocal(Number(val('ev_local')));
+        if (!local) return toast('Elige un local.', 'error');
+        localId = local.id;
         local.eventos = [...(local.eventos || []), { id: nuevoId(), titulo, inicio: new Date(inicio).toISOString(), descripcion: val('ev_desc') }];
         persist();
         toast(`Evento agregado a ${local.nombre}`);
@@ -143,19 +196,43 @@ document.addEventListener('submit', e => {
     if (e.target.id === 'admPromoForm') {
         e.preventDefault();
         const descripcion = val('pr_desc');
-        const dias = [0, 1, 2, 3, 4, 5, 6].filter(d => document.getElementById(`pr_d_${d}`).checked);
+        const dias = diasMarcados('pr');
         if (!descripcion) return toast('Escribe la descripción de la promoción.', 'error');
         if (!dias.length) return toast('Elige al menos un día.', 'error');
         const desde = val('pr_desde');
         const hasta = val('pr_hasta');
         if (desde && hasta && hasta < desde) return toast('La fecha "hasta" debe ser después de "desde".', 'error');
-        localId = Number(val('pr_local'));
-        const local = getLocal(localId);
+        const local = getLocal(Number(val('pr_local')));
+        if (!local) return toast('Elige un local.', 'error');
+        localId = local.id;
         local.promociones = [...(local.promociones || []), {
             descripcion, icono: val('pr_icono') || '🏷️', metodo: val('pr_metodo'), dias, horaInicio: val('pr_ini'), horaFin: val('pr_fin'), desde, hasta
         }];
         persist();
         toast(`Promoción agregada a ${local.nombre}`);
+        rerender();
+    }
+    if (e.target.id === 'admTarjetaForm') {
+        e.preventDefault();
+        const banco = val('tj_banco');
+        let descuento = val('tj_desc');
+        const dias = diasMarcados('tj');
+        if (!banco || !descuento) return toast('Escribe el banco o tarjeta y el descuento.', 'error');
+        if (!dias.length) return toast('Elige al menos un día.', 'error');
+        if (/^\d+$/.test(descuento)) descuento += '%';
+        const desde = val('tj_desde');
+        const hasta = val('tj_hasta');
+        if (desde && hasta && hasta < desde) return toast('La fecha "hasta" debe ser después de "desde".', 'error');
+        const local = getLocal(Number(val('tj_local')));
+        if (!local) return toast('Elige un local.', 'error');
+        localId = local.id;
+        const cond = val('tj_cond');
+        local.promociones = [...(local.promociones || []), {
+            tipo: 'tarjeta', icono: '💳', metodo: banco, dias, horaInicio: '', horaFin: '', desde, hasta,
+            descripcion: `${descuento}${/%$/.test(descuento) ? ' de descuento' : ''} con ${banco}${cond ? ` (${cond})` : ''}`
+        }];
+        persist();
+        toast(`Descuento agregado a ${local.nombre}`);
         rerender();
     }
 });
