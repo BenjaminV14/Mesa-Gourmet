@@ -26,9 +26,32 @@ function requestLocation() {
     }, () => { /* sin permiso: se usa el centro de Talca */ }, { maximumAge: 300000, timeout: 10000 });
 }
 
+// Si ya hay una sesión guardada (o se vuelve del login de Google), se muestra el logo de inmediato
+// en vez de la pantalla de ingreso, para que no aparezca el login un instante antes de entrar
+let haySesionGuardada = false;
+try { haySesionGuardada = remoto && (!!localStorage.getItem('mg-sesion') || /[?&]code=/.test(location.search)); } catch { /* sin acceso al almacenamiento */ }
+const splashEl = document.getElementById('splashScreen');
+const registroEl = document.getElementById('registerScreen');
+if (haySesionGuardada) {
+    registroEl.classList.add('hidden');
+    splashEl.classList.remove('hidden');
+    splashEl.style.opacity = '1';
+}
+
+/** Sin sesión válida: se quita el logo y se muestra el ingreso */
+function mostrarIngreso() {
+    splashEl.classList.add('hidden');
+    registroEl.classList.remove('hidden');
+}
+
+let entrandoApp = false;
 function enterApp({ withSplash = true } = {}) {
-    document.getElementById('registerScreen').classList.add('hidden');
+    // Puede llamarse dos veces (al cargar y al volver de Google): solo cuenta la primera
+    if (entrandoApp || !document.getElementById('mainContent').classList.contains('hidden')) return;
+    entrandoApp = true;
+    registroEl.classList.add('hidden');
     const show = () => {
+        entrandoApp = false;
         document.getElementById('mainHeader').classList.remove('hidden');
         document.getElementById('mainContent').classList.remove('hidden');
         document.getElementById('bottomNav').classList.remove('hidden');
@@ -40,18 +63,17 @@ function enterApp({ withSplash = true } = {}) {
         requestLocation();
         setTimeout(showWelcomeIfNeeded, 600);
     };
-    if (!withSplash) return show();
+    const splashVisible = !splashEl.classList.contains('hidden');
+    if (!withSplash && !splashVisible) return show();
 
-    const splash = document.getElementById('splashScreen');
-    splash.classList.remove('hidden');
-    splash.style.opacity = '1';
+    // La app se arma debajo del logo y el logo se desvanece encima: nunca se ve otra pantalla entremedio
+    splashEl.classList.remove('hidden');
+    splashEl.style.opacity = '1';
     setTimeout(() => {
-        splash.style.opacity = '0';
-        setTimeout(() => {
-            splash.classList.add('hidden');
-            show();
-        }, 400);
-    }, 1200);
+        show();
+        splashEl.style.opacity = '0';
+        setTimeout(() => splashEl.classList.add('hidden'), 500);
+    }, splashVisible ? 150 : 1200);
 }
 
 setReviewPublishedHandler(() => {
@@ -59,7 +81,7 @@ setReviewPublishedHandler(() => {
     if (state.currentView === 'resenas') refreshResenas();
 });
 
-initAuth({ onEnter: () => enterApp() });
+initAuth({ onEnter: () => enterApp(), arrancando: () => arrancando });
 configurarAvisos(msg => showToast(`No se pudo guardar: ${msg}`, 4500));
 setupPwa();
 
@@ -70,6 +92,9 @@ document.addEventListener('keydown', e => {
     }
 });
 track('app_abierta');
+
+// Mientras la app arranca, el aviso de "sesión iniciada" de Supabase no debe abrir la app por segunda vez
+let arrancando = remoto;
 
 if (remoto) {
     iniciarEnLinea();
@@ -93,12 +118,15 @@ async function iniciarEnLinea() {
             await cargarTodo();
             enterApp({ withSplash: false });
         } else {
+            mostrarIngreso();
             await cargarTodo();
         }
     } catch (err) {
         console.error(err);
+        if (!state.user) mostrarIngreso();
         showToast(`No se pudieron cargar los datos: ${mensajeError(err)}`, 6000);
     } finally {
+        arrancando = false;
         aviso.remove();
         invitado.disabled = false;
     }

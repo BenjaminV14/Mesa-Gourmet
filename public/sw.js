@@ -2,7 +2,7 @@
 // - Páginas: primero la red; si no hay conexión, la última versión guardada.
 // - Archivos de la app (/assets/, /icons/): primero lo guardado, porque su nombre cambia en cada versión.
 // No guarda nada de la base de datos ni de otros sitios.
-const CACHE = 'mg-v3';
+const CACHE = 'mg-v4';
 // Rutas relativas a la carpeta del service worker (funciona en la raíz del dominio o en una subcarpeta)
 const BASE = new URL('./', self.location).pathname;
 const SHELL = ['', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png'].map(p => BASE + p);

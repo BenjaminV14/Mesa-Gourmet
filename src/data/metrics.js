@@ -84,9 +84,18 @@ export function estrellasPorCantidad(n) {
     return 5;
 }
 
+/**
+ * Dietas que se muestran de un plato. Si el local dijo en la encuesta que no se protege (o no sabe si se protege)
+ * de la contaminación cruzada con gluten, ningún plato se muestra como apto para celíacos.
+ */
+export function dietasPlato(local, plato) {
+    const dietas = plato.dietas || [];
+    return local.celiacoSeguro === false ? dietas.filter(d => d !== 'sinGluten') : dietas;
+}
+
 export function dietaLocal(local, key) {
     // Se cuenta desde la carta: cada plato marcado (por la IA al subir la carta, o a mano en el panel)
-    const cantidad = (local.menu || []).filter(m => (m.dietas || []).includes(key)).length;
+    const cantidad = (local.menu || []).filter(m => dietasPlato(local, m).includes(key)).length;
     return { cantidad, estrellas: estrellasPorCantidad(cantidad) };
 }
 

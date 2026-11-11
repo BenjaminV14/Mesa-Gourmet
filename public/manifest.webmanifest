@@ -7,12 +7,37 @@
     "scope": "./",
     "display": "standalone",
     "orientation": "any",
-    "background_color": "#0f172a",
+    "background_color": "#7C1C1D",
     "theme_color": "#8B2635",
-    "categories": ["food", "lifestyle", "travel"],
+    "categories": [
+        "food",
+        "lifestyle",
+        "travel"
+    ],
     "icons": [
-        { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-        { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-        { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+        {
+            "src": "icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/isotipo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
     ]
 }

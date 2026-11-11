@@ -16,17 +16,28 @@ export const CARACTERISTICAS_KEYWORDS = {
     'Acceso Discapacitados': ['discapacidad', 'discapacitados', 'silla de ruedas', 'accesibilidad', 'accesible', 'rampa', 'movilidad reducida'],
     'Estacionamiento': ['estacionamiento', 'estacionamientos', 'parking'],
     'Bicicletero': ['bicicleta', 'bicicletas', 'bicicletero'],
-    'Venta de Alcohol': ['alcohol', 'alcoholicas', 'patente de alcohol', 'cerveza', 'vino', 'tragos'],
+    'Venta de Alcohol': ['alcohol', 'alcoholicas', 'patente de alcohol', 'cerveza', 'vino'],
+    'Barra de tragos': ['barra de tragos', 'barra de alcoholes', 'barra', 'bartender', 'cocteleria'],
     'Apto para Fumadores': ['fumador', 'fumadores', 'fumar', 'cigarro'],
     'Acepta Edenred / BAES': ['edenred', 'baes', 'junaeb', 'cheque restaurant', 'ticket restaurant', 'sodexo', 'pluxee'],
-    'Delivery': ['delivery', 'despacho', 'reparto', 'envio a domicilio'],
-    'Apto para menores de edad': ['menores de 18', 'menores de edad', 'ninos'],
+    // Delivery propio: el local tiene sus propios repartidores. Por apps: PedidosYa, Uber Eats, Rappi...
+    'Delivery propio': ['delivery propio', 'reparto propio', 'repartidores propios', 'despacho propio'],
+    'Delivery por apps': ['pedidosya', 'pedidos ya', 'uber eats', 'rappi', 'app de delivery', 'apps de delivery', 'empresa de delivery'],
+    'Solo mayores de 18': ['solo mayores', 'mayores de 18', 'solo adultos'],
+    'Espacio para niños': ['juegos para ninos', 'zona infantil', 'menu infantil', 'silla de bebe', 'tronas'],
+    'Música en vivo': ['musica en vivo', 'show en vivo', 'tocatas', 'karaoke'],
+    'Enchufes para cargar': ['enchufe', 'enchufes', 'cargar el celular', 'cargar el computador'],
     'Acepta reservas': ['reservar alguna mesa', 'reservar mesa', 'reserva de mesa', 'reservas'],
     'Arriendo para eventos': ['reservar el local', 'arriendo del local', 'arrendar el local'],
     'Segundo piso': ['segundo piso'],
-    'Barra': ['barra', 'meson'],
     'Pedidos para llevar': ['realizar pedidos', 'para llevar', 'retiro en local', 'pedidos'],
     'Consumo en el local': ['ingresar al local', 'consumo en el local', 'comer en el local']
+};
+// Preguntas que piden el detalle (la clave del WiFi, con qué apps...)
+const DET_KEYWORDS = {
+    'WiFi Disponible': ['clave del wifi', 'contrasena del wifi', 'clave wifi'],
+    'Delivery por apps': ['apps de delivery', 'empresa de delivery'],
+    'Acepta Edenred / BAES': ['junaeb']
 };
 
 const DIETA_KEYWORDS = {
@@ -58,8 +69,6 @@ export const TARGETS = [
     { id: 'referencia', label: 'Punto de referencia', keywords: ['punto de referencia', 'referencia'] },
     { id: 'horarioFeriados', label: 'Horario en feriados', keywords: ['feriados', 'festividades'] },
     { id: 'mediosPago', label: 'Medios de pago', keywords: ['medios de pago', 'formas de pago', 'metodos de pago'] },
-    { id: 'capacidad', label: 'Capacidad (personas o mesas)', keywords: ['capacidad'] },
-    { id: 'ambiente', label: 'Ambiente / tipo de público', keywords: ['tipo de publico', 'publico que se concentra'] },
     { id: 'tematica', label: 'Temática o decoración', keywords: ['tematica', 'decoracion'] },
     { id: 'horasPeak', label: 'Horas con más público', keywords: ['horas pick', 'horas peak', 'hora peak', 'afluencia'] },
     { id: 'diasPeak', label: 'Días con más público', keywords: ['dias son los que reciben', 'mayor cantidad de publico'] },
@@ -68,12 +77,13 @@ export const TARGETS = [
     { id: 'horario', label: 'Horario (toda la semana o por días)', keywords: ['horario', 'horarios', 'hora de atencion', 'atencion al publico'] },
     ...DIAS.map((d, i) => ({ id: `horario:${i}`, label: `Horario del ${d.toLowerCase()}`, keywords: [`horario ${normalize(d)}`, `${normalize(d)}`] })),
     ...Object.entries(CARACTERISTICAS_KEYWORDS).map(([c, keywords]) => ({ id: `car:${c}`, label: `Característica: ${c}`, keywords })),
-    // Característica con detalle: "Sí, clave: carlota123" -> WiFi + muestra la clave al tocarla
-    { id: 'det:WiFi Disponible', label: 'WiFi + clave (detalle)', keywords: ['clave del wifi', 'contrasena del wifi', 'clave wifi'] },
-    { id: 'det:Delivery', label: 'Delivery + con qué empresas (detalle)', keywords: ['empresa de delivery'] },
-    { id: 'det:Acepta Edenred / BAES', label: 'JUNAEB / Edenred + cómo (detalle)', keywords: ['junaeb'] },
-    { id: 'det:Estacionamiento', label: 'Estacionamiento + dónde (detalle)', keywords: [] },
-    { id: 'det:Acepta reservas', label: 'Reservas + teléfono (detalle)', keywords: [] },
+    // Característica con detalle: "Sí, clave: carlota123" -> WiFi + muestra la clave al tocarla.
+    // Con "Sí" solo aparece la etiqueta; con "No" se quita. El detalle anterior nunca queda pegado.
+    ...Object.keys(CARACTERISTICAS_KEYWORDS).map(c => ({ id: `det:${c}`, label: `${c} + detalle opcional`, keywords: DET_KEYWORDS[c] || [] })),
+    { id: 'top50:recibe', label: 'Quiere recibir la lista mensual de sus clientes (Top 50)', keywords: ['top 50', 'lista mensual'] },
+    { id: 'correoLocal', label: 'Correo del local (para la lista mensual)', keywords: ['correo', 'email', 'mail'] },
+    { id: 'beneficioTop50', label: 'Beneficio para su Top 50', keywords: ['beneficio'] },
+    { id: 'celiacoSeguro', label: 'Se protegen de la contaminación cruzada con gluten (celíacos)', keywords: ['contaminacion cruzada'] },
     { id: 'interno', label: '🔒 Solo para mí (no se muestra en la app)', keywords: [] },
     ...Object.entries(DIETA_KEYWORDS).map(([k, keywords]) => ({ id: `dietaN:${k}`, label: `Platos ${{ vegano: 'veganos', vegetariano: 'vegetarianos', sinGluten: 'sin gluten (celíacos)', sinLactosa: 'sin lactosa' }[k]} (cantidad o sí/no)`, keywords })),
 ];
@@ -195,7 +205,9 @@ const ETIQUETAS_CAMPOS = {
     vegano: 'Vegano', vegetariano: 'Vegetariano', sinGluten: 'Sin gluten', sinLactosa: 'Sin lactosa',
     veganoProductos: 'Platos veganos', vegetarianoProductos: 'Platos vegetarianos', sinGlutenProductos: 'Platos sin gluten', sinLactosaProductos: 'Platos sin lactosa',
     slogan: 'Slogan', facebook: 'Facebook', referencia: 'Punto de referencia', horarioFeriados: 'Horario feriados', mediosPago: 'Medios de pago',
-    capacidad: 'Capacidad', cartaUrl: 'Carta oficial', ambiente: 'Ambiente', tematica: 'Temática', horasPeak: 'Horas con más público', diasPeak: 'Días con más público', notaAcceso: 'Para llegar'
+    cartaUrl: 'Carta oficial', tematica: 'Temática', horasPeak: 'Horas con más público', diasPeak: 'Días con más público', notaAcceso: 'Para llegar',
+    beneficioTop50: 'Beneficio Top 50',
+    celiacoSeguro: 'Se protegen de la contaminación cruzada'
 };
 
 const cellText = v => (v instanceof Date ? v.toLocaleDateString('es-CL') : String(v ?? '').trim());
@@ -274,6 +286,21 @@ const mismoLocal = (a, b) => !!nombreBase(a) && nombreBase(a) === nombreBase(b);
 // Un detalle que solo repite "sí", "no" o "terraza" no aporta nada
 const detalleUtil = t => t && !/^(si|no|yes|terraza|en la terraza)$/.test(normalize(t));
 const capitalizar = t => t.charAt(0).toUpperCase() + t.slice(1);
+// Quita el "Sí," inicial ("Sí, en la vereda" -> "en la vereda"), sin tocar palabras que empiezan igual ("Sirena123")
+const sinSi = t => String(t).replace(/^(s[ií]|yes|x)(?=$|[\s,.:;-])\s*[,.:;-]?\s*/i, '').trim();
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * Detalle de la clave del WiFi: se guarda tal cual (las claves distinguen mayúsculas y minúsculas).
+ * "quempanadas" o "clave: quempanadas" -> "Clave: quempanadas"; una frase más larga queda igual.
+ */
+export function detalleWifi(texto) {
+    const original = String(texto).trim();
+    const t = original.replace(/^(la\s+)?(clave|contrase[nñ]a|pass(word)?)\s*(es)?\s*[:=]?\s*/i, '');
+    if (!t) return null;
+    // Una sola palabra, o venía con "clave:" -> es la clave. Una frase ("red Carlota, clave Abc") queda tal cual
+    return !/\s/.test(t) || t !== original ? `Clave: ${t}` : t;
+}
 
 /**
  * Calcula qué cambiaría en cada local, sin aplicar nada todavía.
@@ -291,6 +318,9 @@ export function planImport(responses, mapping, locales) {
         const quitar = new Set();
         const dietas = {};
         const detalles = {};
+        const contacto = {};
+        // null = borrar el detalle que había. Un detalle real gana si dos preguntas hablan de lo mismo
+        const ponerDetalle = (car, v) => { if (v) detalles[car] = v; else if (!(car in detalles)) detalles[car] = null; };
         let horario = {};
 
         for (const [pregunta, target] of Object.entries(mapping)) {
@@ -299,27 +329,49 @@ export function planImport(responses, mapping, locales) {
             if (target === 'ignorar' || target === 'nombre' || texto === '') continue;
 
             if (target === 'interno') continue;
-            const textoLibre = ['tipo', 'direccion', 'telefono', 'descripcion', 'website', 'slogan', 'referencia', 'horarioFeriados', 'mediosPago', 'capacidad', 'ambiente', 'tematica', 'horasPeak', 'diasPeak', 'notaAcceso', 'facebook', 'instagram', 'tiktok', 'whatsapp'];
+            const textoLibre = ['tipo', 'direccion', 'telefono', 'descripcion', 'website', 'slogan', 'referencia', 'horarioFeriados', 'mediosPago', 'tematica', 'horasPeak', 'diasPeak', 'notaAcceso', 'facebook', 'instagram', 'tiktok', 'whatsapp'];
             // "No" en una pregunta de texto (sin TikTok, sin sitio web) significa que no hay dato
             if (textoLibre.includes(target) && /^(no|no tiene|no tenemos|ninguno|ninguna|-)$/.test(normalize(texto))) continue;
             if (target === 'telefono') datos.telefono = formatTelefono(texto);
             else if (['horasPeak', 'horarioFeriados'].includes(target)) datos[target] = capitalizar(horasLegibles(texto));
-            else if (['tipo', 'descripcion', 'website', 'slogan', 'referencia', 'mediosPago', 'capacidad', 'ambiente', 'tematica', 'diasPeak', 'notaAcceso', 'direccion'].includes(target)) datos[target] = target === 'website' ? texto : capitalizar(texto);
+            else if (['tipo', 'descripcion', 'website', 'slogan', 'referencia', 'mediosPago', 'tematica', 'diasPeak', 'notaAcceso', 'direccion'].includes(target)) datos[target] = target === 'website' ? texto : capitalizar(texto);
             else if (target === 'cartaUrl') {
                 // Solo si la respuesta es un link ("2 menús, verano e invierno" no lo es)
                 const link = texto.match(/(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?/i);
                 if (link && !/\s/.test(link[0])) datos.cartaUrl = link[0].startsWith('http') ? link[0] : `https://${link[0]}`;
             }
             else if (target === 'facebook') datos.facebook = texto.replace(/^@/, '').replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/.*$/, '').trim();
+            else if (target === 'top50:recibe') {
+                const yn = parseYesNo(valor);
+                if (yn === null) avisos.push(`No se entendió si quieren la lista mensual: "${texto.slice(0, 40)}"`);
+                else contacto.recibeTop50 = yn;
+            }
+            else if (target === 'correoLocal') {
+                const correo = texto.toLowerCase().match(/[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}/)?.[0];
+                if (correo && EMAIL.test(correo)) contacto.email = correo;
+                else if (parseYesNo(valor) !== false) avisos.push(`El correo "${texto.slice(0, 40)}" no parece válido`);
+            }
+            else if (target === 'celiacoSeguro') {
+                // Solo un "Sí" claro cuenta: si no se protegen o no saben, sus productos no son aptos para celíacos
+                const yn = parseYesNo(valor);
+                datos.celiacoSeguro = yn === true;
+                if (yn === null) avisos.push(`No quedó claro si se protegen de la contaminación cruzada ("${texto.slice(0, 40)}"): se marcó que no. Anota Sí o No`);
+            }
+            else if (target === 'beneficioTop50') {
+                if (parseYesNo(valor) === false) datos.beneficioTop50 = '';
+                else datos.beneficioTop50 = capitalizar(sinSi(texto));
+            }
             else if (target.startsWith('det:')) {
                 const car = target.slice(4);
                 const yn = parseYesNo(valor);
-                // El detalle es la respuesta sin el "sí," inicial
-                const detalle = texto.replace(/^(s[ií]|yes|x)\s*[,.:;-]?\s*/i, '').trim();
-                if (yn === false) quitar.add(car);
+                // El detalle es la respuesta sin el "sí," inicial. Si no queda nada útil, se borra el que había
+                const detalle = sinSi(texto);
+                if (yn === false && !/^no,? pero /.test(normalize(texto))) { quitar.add(car); ponerDetalle(car, null); }
                 else if (yn === true || detalle) {
                     agregar.add(car);
-                    if (detalleUtil(detalle)) detalles[car] = /^[\d\s+]{8,}$/.test(detalle) ? `Al ${formatTelefono(detalle)}` : capitalizar(detalle);
+                    if (car === 'WiFi Disponible') ponerDetalle(car, detalleWifi(detalle));
+                    else if (!detalleUtil(detalle)) ponerDetalle(car, null);
+                    else ponerDetalle(car, /^[\d\s+]{8,}$/.test(detalle) ? `Al ${formatTelefono(detalle)}` : capitalizar(detalle));
                 }
             } else if (target.startsWith('dietaN:')) {
                 const key = target.slice(7);
@@ -356,31 +408,32 @@ export function planImport(responses, mapping, locales) {
                 const otra = Object.keys(CARACTERISTICAS_KEYWORDS).find(c => c !== car && CARACTERISTICAS_KEYWORDS[c].some(k => containsWord(n, normalize(k))));
                 if (yn === true) {
                     agregar.add(car);
-                    const extra = texto.replace(/^(s[ií]|yes|x)\s*[,.:;-]?\s*/i, '').trim();
-                    if (soloTerraza) detalles[car] = 'Solo en la terraza';
-                    else if (detalleUtil(extra)) detalles[car] = capitalizar(extra);
+                    const extra = sinSi(texto);
+                    if (soloTerraza) ponerDetalle(car, 'Solo en la terraza');
+                    else ponerDetalle(car, detalleUtil(extra) ? capitalizar(extra) : null);
                 }
                 // "No, pero en la terraza se puede": sí, con esa aclaración
                 else if (/^no,? pero .*(se puede|puede|terraza)/.test(n)) {
                     agregar.add(car);
-                    detalles[car] = capitalizar(texto);
+                    ponerDetalle(car, capitalizar(texto));
                 }
                 else if (yn === false) {
                     quitar.add(car);
+                    ponerDetalle(car, null);
                     // "No (solo en caso de urgencia)" se guarda como aviso para que decidas
                     if (/\(|solo|pero/.test(n)) avisos.push(`"${car}": respondieron "${texto.slice(0, 50)}". Se marcó como que no tiene.`);
                 }
                 else if (soloTerraza && (car === 'Ingreso de Mascotas' || car === 'Apto para Fumadores')) {
                     agregar.add(car);
-                    detalles[car] = 'Solo en la terraza';
+                    ponerDetalle(car, 'Solo en la terraza');
                 }
                 else if ((CARACTERISTICAS_KEYWORDS[car] || []).some(k => containsWord(n, normalize(k)))) {
                     agregar.add(car);
-                    detalles[car] = capitalizar(texto);
+                    ponerDetalle(car, capitalizar(texto));
                 }
                 else if (otra) {
                     agregar.add(otra);
-                    detalles[otra] = capitalizar(texto);
+                    ponerDetalle(otra, capitalizar(texto));
                     cambios.push(`"${texto.slice(0, 40)}" → se marcó ${otra}`);
                 }
                 else avisos.push(`Respuesta poco clara para "${car}": "${texto.slice(0, 40)}"`);
@@ -401,7 +454,17 @@ export function planImport(responses, mapping, locales) {
         quitar.forEach(c => { if ((base.caracteristicas || []).includes(c)) cambios.push(`− ${c}`); });
         Object.entries(datos).forEach(([k, v]) => { if (JSON.stringify(base[k]) !== JSON.stringify(v)) cambios.push(`${ETIQUETAS_CAMPOS[k] || k}: ${Array.isArray(v) ? v.join(', ') : v}`); });
         Object.entries(dietas).forEach(([k, v]) => { if (base[k] !== v) cambios.push(`${ETIQUETAS_CAMPOS[k] || k}: ${k.endsWith('Productos') ? `${v} platos` : `${v}/5`}`); });
-        Object.entries(detalles).forEach(([k, v]) => { if ((base.caracteristicasDetalle || {})[k] !== v) cambios.push(`${k} → ${v}`); });
+        // Detalles: se aplican los nuevos, se borran los marcados con null y los de características que el local ya no tiene
+        const caracteristicasDetalle = { ...(base.caracteristicasDetalle || {}), ...detalles };
+        Object.keys(caracteristicasDetalle).forEach(k => { if (!caracteristicasDetalle[k] || !caracteristicas.includes(k)) delete caracteristicasDetalle[k]; });
+        Object.entries(detalles).forEach(([k, v]) => {
+            const antes = (base.caracteristicasDetalle || {})[k];
+            if (v && antes !== v) cambios.push(`${k} → ${v}`);
+            else if (!v && antes && caracteristicas.includes(k)) cambios.push(`${k}: sin detalle`);
+        });
+        const contactoNuevo = Object.keys(contacto).length ? { ...(base.contacto || {}), ...contacto } : null;
+        if (contacto.email && contacto.email !== base.contacto?.email) cambios.push(`Correo del local: ${contacto.email}`);
+        if ('recibeTop50' in contacto && contacto.recibeTop50 !== (base.contacto?.recibeTop50 === true)) cambios.push(`Lista mensual: ${contacto.recibeTop50 ? 'sí la quiere' : 'no la quiere'}`);
         if (horariosSemana) {
             Object.entries(horariosSemana).forEach(([d, v]) => { if ((base.horariosSemana || {})[d] !== v) cambios.push(`${d}: ${v}`); });
         }
@@ -415,7 +478,8 @@ export function planImport(responses, mapping, locales) {
             aplicable: !!nombre && !soloInterno,
             resultado: {
                 ...datos, ...dietas, caracteristicas,
-                caracteristicasDetalle: { ...(base.caracteristicasDetalle || {}), ...detalles },
+                caracteristicasDetalle,
+                ...(contactoNuevo ? { contacto: contactoNuevo } : {}),
                 ...(horariosSemana ? { horariosSemana } : {})
             },
             respuestas

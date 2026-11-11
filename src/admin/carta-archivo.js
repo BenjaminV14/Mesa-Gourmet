@@ -20,6 +20,29 @@ export async function leerArchivoCarta(file) {
     throw new Error('Ese tipo de archivo no se puede leer. Usa una foto, un PDF, un Excel (.xlsx), un .csv o un .txt. Los Word (.docx) se pueden guardar como PDF.');
 }
 
+/**
+ * Varias fotos o archivos de la misma carta (ej. una foto por página).
+ * Las fotos van juntas a la IA (hasta 8), así entiende las secciones que siguen de una página a otra.
+ * Devuelve { texto?, platos } con todo lo leído.
+ */
+export async function leerArchivosCarta(files) {
+    const lista = [...files];
+    if (lista.length === 1) {
+        const r = await leerArchivoCarta(lista[0]);
+        return { texto: r.texto, platos: r.platos || [] };
+    }
+    const fotos = lista.filter(f => f.type.startsWith('image/'));
+    if (fotos.length > 8) throw new Error('Elige hasta 8 fotos a la vez.');
+    const platos = fotos.length ? await leerConIa(await Promise.all(fotos.map(imagenBase64))) : [];
+    const textos = [];
+    for (const f of lista.filter(f => !f.type.startsWith('image/'))) {
+        const r = await leerArchivoCarta(f);
+        if (r.texto !== undefined) textos.push(r.texto);
+        else platos.push(...r.platos);
+    }
+    return { texto: textos.length ? textos.join('\n') : undefined, platos };
+}
+
 async function leerXlsx(file) {
     const { default: readExcelFile } = await import('read-excel-file/browser');
     return readExcelFile(file);

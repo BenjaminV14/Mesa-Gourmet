@@ -2,6 +2,9 @@
 //
 // - Solo aparecen con nombre, apellido y @usuario quienes aceptaron compartir esos datos con los locales
 //   (perfiles.comparte_con_locales). Al resto se les cuenta, sin datos personales.
+// - Solo se envía a los locales que pidieron la lista (contactos_locales.recibe_top50).
+// - Los números del mes (visitas a la ficha, contactos, clientes nuevos...) van solo a los locales
+//   con patrocinio pagado que cubra ese mes: son parte del plan de patrocinio.
 // - Solo se envían meses ya terminados, y nunca dos veces al mismo local (queda en envios_top50).
 //   Por eso cualquiera puede llamarla sin causar daño: la programación (pg_cron, día 1 a las 10:00)
 //   la llama sin clave. Un administrador puede, desde el panel, reenviar un mes o un local.
@@ -41,6 +44,12 @@ function mesActualChile(): string {
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
+}
+
+/** Último día del mes "AAAA-MM-01" */
+function finDeMes(mes: string): string {
+  const [y, m] = mes.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 }
 
 /** ¿La llamada viene de un administrador conectado en el panel? */
@@ -143,12 +152,16 @@ Deno.serve(async (req) => {
   if (!grupos.size) return json({ enviados: 0, mensaje: "No hay listas pendientes." });
 
   const localIds = [...new Set([...grupos.keys()].map(k => Number(k.split("|")[1])))];
-  const [{ data: locales }, { data: contactos }, { data: envios }, { data: stats }] = await Promise.all([
+  const [{ data: locales }, { data: contactos }, { data: envios }, { data: stats }, { data: patrocinios }] = await Promise.all([
     supabase.from("locales").select("id, nombre, activo, beneficio_top50").in("id", localIds),
     supabase.from("contactos_locales").select("local_id, email, contacto, recibe_top50").in("local_id", localIds),
     supabase.from("envios_top50").select("mes, local_id, estado").in("local_id", localIds),
     supabase.from("estadisticas_mes").select("*").in("local_id", localIds),
+    supabase.from("patrocinios").select("local_id, desde, hasta, pagado").eq("pagado", true).in("local_id", localIds),
   ]);
+  // Patrocinio pagado que se cruza con el mes
+  const patrocinado = (localId: number, mes: string) =>
+    (patrocinios || []).some(p => p.local_id === localId && p.desde <= finDeMes(mes) && p.hasta >= mes);
 
   const resultado: { local: string; mes: string; estado: string; detalle?: string }[] = [];
   for (const [k, personas] of grupos) {
@@ -163,7 +176,7 @@ Deno.serve(async (req) => {
     // En modo prueba se puede volver a probar; un envío real no se repite (salvo reenvío del administrador)
     if (previo?.estado === "enviado" && !reenviar) { resultado.push({ local: nombre, mes, estado: "ya enviado" }); continue; }
 
-    const st = (stats || []).find(s => s.mes === mes && s.local_id === localId) || null;
+    const st = patrocinado(localId, mes) ? (stats || []).find(s => s.mes === mes && s.local_id === localId) || null : null;
     const asunto = `Tus mejores clientes de ${nombreMes(mes)} · Mesa Gourmet`;
     const html = correoHtml(local, contacto.contacto, mes, personas, st);
     try {

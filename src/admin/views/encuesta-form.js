@@ -77,6 +77,9 @@ function valorEnApp(local, uso) {
         ? `Sí${local.caracteristicasDetalle?.[c] ? ` (${local.caracteristicasDetalle[c]})` : ''}`
         : 'No';
     if (uso.startsWith('car:')) return conDetalle(uso.slice(4));
+    if (uso === 'top50:recibe') return local.contacto?.recibeTop50 === true ? 'Sí, la quiere' : local.contacto?.recibeTop50 === false ? 'No la quiere' : '';
+    if (uso === 'correoLocal') return local.contacto?.email || '';
+    if (uso === 'celiacoSeguro') return local.celiacoSeguro === true ? 'Sí: sus productos sin gluten se muestran' : local.celiacoSeguro === false ? 'No: la app no muestra productos sin gluten' : '';
     if (uso.startsWith('det:')) return conDetalle(uso.slice(4));
     if (uso.startsWith('dietaN:')) {
         const n = dietaLocal(local, uso.slice(7)).cantidad;
@@ -140,7 +143,7 @@ function progreso(local) {
 }
 
 function chipsRapidos(p) {
-    if (!/^(car|det|dietaN):/.test(p.uso)) return '';
+    if (!/^(car|det|dietaN|top50):/.test(p.uso) && p.uso !== 'celiacoSeguro') return '';
     const opciones = ['Sí', 'No'];
     if (/Mascotas|Fumadores/.test(p.uso)) opciones.push('Solo en terraza');
     if (p.uso === 'car:Ingreso de Mascotas') opciones.push('En todo el local');
@@ -148,8 +151,11 @@ function chipsRapidos(p) {
 }
 
 function placeholder(p) {
-    if (p.uso.startsWith('det:WiFi')) return 'Ej: Sí, clave: carlota2026';
-    if (p.uso.startsWith('det:')) return 'Ej: Sí, con PedidosYa y Uber Eats';
+    if (p.uso.startsWith('det:WiFi')) return 'Ej: Sí, carlota2026 (la clave tal cual)';
+    if (p.uso === 'det:Delivery por apps') return 'Ej: Sí, PedidosYa y Uber Eats';
+    if (p.uso.startsWith('det:')) return 'Sí o No (el detalle es opcional)';
+    if (p.uso === 'correoLocal') return 'correo@local.cl';
+    if (p.uso === 'beneficioTop50') return 'Ej: 10% de descuento en su próxima visita';
     if (p.uso.startsWith('dietaN:')) return 'Ej: 3 (empanada de queso, ensalada...)';
     if (p.uso === 'horario') return 'Ej: Lunes a viernes 12:00 a 23:00, sábado 13:00 a 01:00, domingo cerrado';
     if (p.uso === 'instagram' || p.uso === 'tiktok') return '@usuario o link';

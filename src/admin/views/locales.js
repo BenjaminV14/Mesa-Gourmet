@@ -21,8 +21,6 @@ const EXTRAS = [
     ['referencia', 'Punto de referencia', 'Ej: Frente a la plaza'],
     ['horarioFeriados', 'Horario en feriados', 'Ej: Feriados de 13:00 a 18:00'],
     ['mediosPago', 'Medios de pago', 'Efectivo, débito, crédito, transferencia'],
-    ['capacidad', 'Capacidad', 'Ej: 40 personas, 10 mesas'],
-    ['ambiente', 'Ambiente y público', 'Ej: Familiar, estudiantes'],
     ['tematica', 'Temática o decoración', 'Ej: Rústica, años 80'],
     ['horasPeak', 'Horas con más gente', 'Ej: 13:00 a 15:00'],
     ['diasPeak', 'Días con más gente', 'Ej: Viernes y sábado'],
@@ -137,14 +135,15 @@ function renderForm(local) {
 
             <section class="adm-card">
                 <h2>Contacto y Top 50 de clientes</h2>
-                <p class="adm-help">El día 1 de cada mes se envía a este correo el Top 50 de clientes del mes anterior (personas con 5 reseñas o más en el local),
-                con nombre, apellido y @usuario <b>solo de quienes lo autorizaron</b>, más los números del mes. El correo no se muestra en la app.
+                <p class="adm-help">Si el local lo pidió, el día 1 de cada mes se envía a este correo el Top 50 de clientes del mes anterior (personas con 5 reseñas o más en el local),
+                con nombre, apellido y @usuario <b>solo de quienes lo autorizaron</b>. Los números del mes (visitas, contactos, clientes nuevos) van solo a los locales con patrocinio pagado.
+                El correo no se muestra en la app.
                 El beneficio sí lo ven los clientes que quedan en el Top 50 (en su perfil, junto al código MESAGOURMET).</p>
                 <div class="adm-grid">
                     ${field('Correo del local', 'f_contacto_email', l.contacto?.email || '', { type: 'email', placeholder: 'dueno@local.cl' })}
                     ${field('Nombre de quien lo recibe', 'f_contacto_nombre', l.contacto?.nombre || '', { placeholder: 'Ej: Ramsés' })}
                     ${field('Beneficio para su Top 50 (opcional)', 'f_beneficio', l.beneficioTop50 || '', { full: true, placeholder: 'Ej: 10% de descuento en tu próxima visita' })}
-                    <label class="adm-toggle full" style="grid-column: 1 / -1"><input type="checkbox" id="f_recibe_top50" ${l.contacto?.recibeTop50 === false ? '' : 'checked'}>
+                    <label class="adm-toggle full" style="grid-column: 1 / -1"><input type="checkbox" id="f_recibe_top50" ${l.contacto?.recibeTop50 === true ? 'checked' : ''}>
                         <span>El local aceptó recibir la lista mensual (y se comprometió a usarla solo para ofrecer beneficios y a borrarla al mes)</span></label>
                 </div>
             </section>
