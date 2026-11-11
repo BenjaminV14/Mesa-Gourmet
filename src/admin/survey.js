@@ -83,6 +83,7 @@ export const TARGETS = [
     { id: 'top50:recibe', label: 'Quiere recibir la lista mensual de sus clientes (Top 50)', keywords: ['top 50', 'lista mensual'] },
     { id: 'correoLocal', label: 'Correo del local (para la lista mensual)', keywords: ['correo', 'email', 'mail'] },
     { id: 'beneficioTop50', label: 'Beneficio para su Top 50', keywords: ['beneficio'] },
+    { id: 'celiacoSeguro', label: 'Se protegen de la contaminación cruzada con gluten (celíacos)', keywords: ['contaminacion cruzada'] },
     { id: 'interno', label: '🔒 Solo para mí (no se muestra en la app)', keywords: [] },
     ...Object.entries(DIETA_KEYWORDS).map(([k, keywords]) => ({ id: `dietaN:${k}`, label: `Platos ${{ vegano: 'veganos', vegetariano: 'vegetarianos', sinGluten: 'sin gluten (celíacos)', sinLactosa: 'sin lactosa' }[k]} (cantidad o sí/no)`, keywords })),
 ];
@@ -205,7 +206,8 @@ const ETIQUETAS_CAMPOS = {
     veganoProductos: 'Platos veganos', vegetarianoProductos: 'Platos vegetarianos', sinGlutenProductos: 'Platos sin gluten', sinLactosaProductos: 'Platos sin lactosa',
     slogan: 'Slogan', facebook: 'Facebook', referencia: 'Punto de referencia', horarioFeriados: 'Horario feriados', mediosPago: 'Medios de pago',
     cartaUrl: 'Carta oficial', tematica: 'Temática', horasPeak: 'Horas con más público', diasPeak: 'Días con más público', notaAcceso: 'Para llegar',
-    beneficioTop50: 'Beneficio Top 50'
+    beneficioTop50: 'Beneficio Top 50',
+    celiacoSeguro: 'Se protegen de la contaminación cruzada'
 };
 
 const cellText = v => (v instanceof Date ? v.toLocaleDateString('es-CL') : String(v ?? '').trim());
@@ -348,6 +350,12 @@ export function planImport(responses, mapping, locales) {
                 const correo = texto.toLowerCase().match(/[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}/)?.[0];
                 if (correo && EMAIL.test(correo)) contacto.email = correo;
                 else if (parseYesNo(valor) !== false) avisos.push(`El correo "${texto.slice(0, 40)}" no parece válido`);
+            }
+            else if (target === 'celiacoSeguro') {
+                // Solo un "Sí" claro cuenta: si no se protegen o no saben, sus productos no son aptos para celíacos
+                const yn = parseYesNo(valor);
+                datos.celiacoSeguro = yn === true;
+                if (yn === null) avisos.push(`No quedó claro si se protegen de la contaminación cruzada ("${texto.slice(0, 40)}"): se marcó que no. Anota Sí o No`);
             }
             else if (target === 'beneficioTop50') {
                 if (parseYesNo(valor) === false) datos.beneficioTop50 = '';

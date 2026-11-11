@@ -46,6 +46,7 @@ function localDesdeFila(l, extra) {
         tiktok: l.tiktok || '', facebook: l.facebook || '', website: l.website || '', cartaUrl: l.carta_url || '',
         descripcion: l.descripcion || '', imagen: l.imagen_url || '', lat: l.lat, lng: l.lng,
         horariosSemana: l.horarios || {}, horarioFeriados: l.horario_feriados || '', mediosPago: l.medios_pago || '',
+        celiacoSeguro: typeof l.celiaco_seguro === 'boolean' ? l.celiaco_seguro : null,
         tematica: l.tematica || '',
         horasPeak: l.horas_peak || '', diasPeak: l.dias_peak || '',
         caracteristicas: l.caracteristicas || [], caracteristicasDetalle: l.caracteristicas_detalle || {},
@@ -307,6 +308,7 @@ function filaDeLocal(l) {
         horarios: l.horariosSemana || {}, horario_feriados: l.horarioFeriados || null, medios_pago: l.mediosPago || null,
         // Capacidad y tipo de público son solo para el administrador: quedan en la encuesta, no en la tabla pública
         capacidad: null, ambiente: null, tematica: l.tematica || null,
+        celiaco_seguro: typeof l.celiacoSeguro === 'boolean' ? l.celiacoSeguro : null,
         horas_peak: l.horasPeak || null, dias_peak: l.diasPeak || null, caracteristicas: l.caracteristicas || [],
         caracteristicas_detalle: l.caracteristicasDetalle || {}, etiquetas: l.etiquetas || [],
         beneficio_top50: l.beneficioTop50 || null,

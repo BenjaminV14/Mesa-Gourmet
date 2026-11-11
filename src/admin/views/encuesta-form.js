@@ -79,6 +79,7 @@ function valorEnApp(local, uso) {
     if (uso.startsWith('car:')) return conDetalle(uso.slice(4));
     if (uso === 'top50:recibe') return local.contacto?.recibeTop50 === true ? 'Sí, la quiere' : local.contacto?.recibeTop50 === false ? 'No la quiere' : '';
     if (uso === 'correoLocal') return local.contacto?.email || '';
+    if (uso === 'celiacoSeguro') return local.celiacoSeguro === true ? 'Sí: sus productos sin gluten se muestran' : local.celiacoSeguro === false ? 'No: la app no muestra productos sin gluten' : '';
     if (uso.startsWith('det:')) return conDetalle(uso.slice(4));
     if (uso.startsWith('dietaN:')) {
         const n = dietaLocal(local, uso.slice(7)).cantidad;
@@ -142,7 +143,7 @@ function progreso(local) {
 }
 
 function chipsRapidos(p) {
-    if (!/^(car|det|dietaN|top50):/.test(p.uso)) return '';
+    if (!/^(car|det|dietaN|top50):/.test(p.uso) && p.uso !== 'celiacoSeguro') return '';
     const opciones = ['Sí', 'No'];
     if (/Mascotas|Fumadores/.test(p.uso)) opciones.push('Solo en terraza');
     if (p.uso === 'car:Ingreso de Mascotas') opciones.push('En todo el local');

@@ -1,7 +1,7 @@
 // Ficha de un local: Info, Carta, Reseñas y Eventos y promociones (esta última solo para cuentas registradas)
 import { state, isLoggedIn } from '../state.js';
 import { getLocal, addReport, saveSession } from '../data/store.js';
-import { vipsDeLocal, notas30, notasHistoricas, cartaLocal, DIETAS, dietaLocal, distincionesActuales, distincionesHistoricas, reviewsPublicadasDe } from '../data/metrics.js';
+import { vipsDeLocal, notas30, notasHistoricas, cartaLocal, DIETAS, dietaLocal, dietasPlato, distincionesActuales, distincionesHistoricas, reviewsPublicadasDe } from '../data/metrics.js';
 import { registerActions } from '../ui/actions.js';
 import { openSheet, closeSheet, showToast } from '../ui/feedback.js';
 import { estadoBadge, sponsoredBadge, emptyState, ratingStars } from '../ui/cards.js';
@@ -249,7 +249,7 @@ function renderMenu(local) {
                     <span class="menu-rank">${i === 0 && foto ? '👑' : `#${i + 1}`}</span>
                     <img src="${esc(safeUrl(foto ? foto.url : item.imagen))}" alt="${esc(item.nombre)}" loading="lazy" class="${foto ? '' : 'is-fallback'}">
                     <div class="menu-item-info">
-                        <h4>${esc(item.nombre)} ${(item.dietas || []).map(d => `<span title="${esc(d)}">${dietaIcon[d] || ''}</span>`).join('')}</h4>
+                        <h4>${esc(item.nombre)} ${dietasPlato(local, item).map(d => `<span title="${esc(d)}">${dietaIcon[d] || ''}</span>`).join('')}</h4>
                         <span class="menu-cat">${esc(item.categoria || 'Otros')}</span>
                         <div class="menu-item-foot">
                             <span class="menu-price">${esc(formatPrice(item.precio))}</span>

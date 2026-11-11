@@ -21,7 +21,7 @@ let onEnterApp = () => {};
 let entrando = false;
 let mode = 'login';
 
-export function initAuth({ onEnter }) {
+export function initAuth({ onEnter, arrancando = () => false }) {
     onEnterApp = onEnter;
     setMode('login');
     document.getElementById('authForm').addEventListener('submit', handleSubmit);
@@ -31,7 +31,7 @@ export function initAuth({ onEnter }) {
             // Se espera un instante: dentro de este aviso no se deben hacer otras consultas a Supabase
             setTimeout(() => {
                 if (event === 'PASSWORD_RECOVERY') abrirNuevaClave();
-                else if (event === 'SIGNED_IN' && session && !state.user) entrarConSesion(session, 'inicio_sesion');
+                else if (event === 'SIGNED_IN' && session && !state.user && !arrancando()) entrarConSesion(session, 'inicio_sesion');
             }, 0);
         });
     }

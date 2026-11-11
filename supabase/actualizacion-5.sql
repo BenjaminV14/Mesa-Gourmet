@@ -10,8 +10,11 @@
 --  4. Banco de preguntas corregido (mismos ids, así no se pierde ninguna respuesta)
 --  5. Características: "Barra" pasa a "Barra de tragos" (solo donde venden alcohol), "Delivery" se
 --     separa en "Delivery por apps" y "Delivery propio", se retira "Apto para menores de edad"
---  6. Detalles sueltos: se borran los que quedaron de respuestas a medio escribir o de
---     características que el local ya no tiene. La clave del WiFi queda tal cual la dio el local
+--  6. Detalles sueltos: se borran los que quedaron de respuestas a medio escribir, los de preguntas
+--     respondidas solo con "Sí" y los de características que el local ya no tiene. La clave del WiFi
+--     queda tal cual la dio el local
+--  7. Celíacos: nueva columna locales.celiaco_seguro. Si el local no se protege de la contaminación
+--     cruzada (o no sabe), la app no muestra ningún plato suyo como apto para celíacos
 -- =====================================================================
 
 -- 1. Descuentos con tarjetas
@@ -26,6 +29,10 @@ where not exists (
     select 1 from public.encuestas_locales e
     where e.local_id = c.local_id and e.respuestas->>'q73' ~* '^\s*(s[ií]|ok|claro)($|[^a-zñ])'
 );
+
+-- 7. Celíacos (va antes porque la pregunta nueva la usa)
+alter table public.locales add column if not exists celiaco_seguro boolean;
+comment on column public.locales.celiaco_seguro is 'Encuesta: true = se protegen de la contaminación cruzada con gluten; false = no o no saben (no se muestran platos sin gluten); null = sin responder';
 
 -- 3. Datos privados fuera de la tabla pública
 update public.locales set capacidad = null, ambiente = null where capacidad is not null or ambiente is not null;
@@ -67,50 +74,51 @@ insert into public.encuesta_preguntas (id, seccion, texto, uso, sugerencia, orde
     ('q4', 'oferta', '¿Qué platos son vegetarianos?', 'interno', 'La app los detecta sola al subir la carta; esto sirve para confirmar', 28),
     ('q5', 'oferta', '¿Qué platos son veganos?', 'interno', 'Sirve para confirmar lo que detecta la carta', 29),
     ('q13', 'oferta', '¿Qué productos son sin lactosa?', 'interno', 'Sirve para confirmar lo que detecta la carta', 30),
-    ('q14', 'oferta', '¿Qué productos son sin gluten? ¿Cómo evitan la contaminación cruzada?', 'interno', 'Importante para celíacos', 31),
-    ('q18', 'oferta', '¿Tienen carta física o con QR en las mesas?', 'interno', null, 32),
-    ('q19', 'oferta', '¿Tienen tarjetas de presentación del local?', 'interno', null, 33),
-    ('q10', 'oferta', '¿En qué horario hay más gente?', 'horasPeak', null, 34),
-    ('q12', 'oferta', '¿Qué días tienen más público?', 'diasPeak', null, 35),
-    ('q71', 'oferta', '¿Cuánto gasta en promedio una persona?', 'interno', 'Precio promedio por persona. Solo para ti', 36),
-    ('q9', 'oferta', '¿Qué tipo de público va al local?', 'interno', 'Familias, estudiantes, parejas, after office… Solo para ti, no sale en la app', 37),
-    ('q63', 'oferta', '¿Participan en eventos con su propio personal o con otro?', 'interno', null, 38),
-    ('q64', 'oferta', 'En eventos (fondas, ferias), ¿suelen unirse a un puesto?', 'interno', null, 39),
-    ('q35', 'infra', '¿Tienen baño para el público?', 'det:Baño / WC', null, 40),
-    ('q15', 'infra', '¿Tienen WiFi para el público? ¿Cuál es la clave?', 'det:WiFi Disponible', 'Anota la clave tal cual, respetando mayúsculas y minúsculas. Se muestra en la app', 41),
-    ('q58', 'infra', '¿Tienen terraza?', 'det:Terraza', null, 42),
-    ('q16', 'infra', '¿Aceptan mascotas? ¿En todo el local o solo en la terraza?', 'car:Ingreso de Mascotas', null, 43),
-    ('q17', 'infra', '¿Tienen zona para fumadores? ¿Dónde?', 'car:Apto para Fumadores', null, 44),
-    ('q28', 'infra', '¿Tienen estacionamiento?', 'det:Estacionamiento', 'Basta Sí o No. Si quieres, agrega dónde: propio, en la calle, parquímetro…', 45),
-    ('q32', 'infra', '¿Tienen bicicletero o lugar para dejar bicicletas?', 'det:Bicicletero', null, 46),
-    ('q27', 'infra', '¿Tienen acceso para personas en silla de ruedas o con movilidad reducida?', 'det:Acceso Discapacitados', null, 47),
-    ('q29', 'infra', '¿Tienen segundo piso para el público?', 'car:Segundo piso', null, 48),
-    ('q31', 'infra', '¿Tienen barra de tragos?', 'det:Barra de tragos', 'Una barra para pedir y tomar algo. Un mesón para pagar no cuenta', 49),
-    ('q25', 'infra', '¿Tienen aire acondicionado o ventilación?', 'car:Aire Acondicionado / Ventilación', null, 50),
-    ('q72', 'infra', '¿Tienen calefacción?', 'det:Calefacción', null, 51),
-    ('q70', 'infra', '¿Hay enchufes para cargar el celular o el computador?', 'car:Enchufes para cargar', null, 52),
-    ('q69', 'infra', '¿Tienen algo para niños? (silla de bebé, juegos, menú infantil)', 'det:Espacio para niños', null, 53),
-    ('q68', 'infra', '¿Tienen música en vivo o shows? ¿Qué días?', 'det:Música en vivo', null, 54),
-    ('q66', 'infra', '¿Tienen cámaras de seguridad o guardia?', 'car:Seguridad Completa', null, 55),
-    ('q33', 'infra', '¿El local tiene alguna temática o estilo de decoración?', 'tematica', null, 56),
-    ('q30', 'infra', '¿Para cuántas personas hay capacidad? (sillas y mesas)', 'interno', 'Solo para ti, no sale en la app', 57),
-    ('q73', 'relacion', '¿Quieren recibir cada mes, por correo, la lista de sus mejores clientes de la app (Top 50)?', 'top50:recibe', 'Es gratis y opcional. Solo incluye a clientes que aceptaron compartir su nombre; deben usarla solo para ofrecerles un beneficio y borrarla al mes', 58),
-    ('q75', 'relacion', '¿Qué beneficio le darían a su Top 50?', 'beneficioTop50', 'Ej: 10% de descuento mostrando el código MESAGOURMET. Lo ven los clientes en su perfil', 59),
-    ('q76', 'relacion', '¿Les interesa aparecer destacados en la app (plan de patrocinio)?', 'interno', 'Incluye estadísticas mensuales de cuánta gente llegó al local por la app', 60),
-    ('q62', 'relacion', 'La casa invita', 'interno', null, 61),
-    ('q61', 'relacion', 'Compromisos', 'interno', null, 62),
-    ('q36', 'relacion', '¿Hacen sorteos?', 'interno', null, 63),
-    ('q37', 'relacion', '¿Qué hacen en fechas especiales?', 'interno', 'Día de la Madre, Fiestas Patrias, San Valentín…', 64),
-    ('q38', 'relacion', '¿Tienen alguna iniciativa social o ambiental?', 'interno', null, 65),
-    ('q39', 'relacion', '¿Tienen socios o alianzas estratégicas?', 'interno', null, 66),
-    ('q41', 'relacion', '¿El local está preparado para atender a personas con discapacidad visual, auditiva o cognitiva?', 'interno', null, 67),
-    ('q65', 'relacion', '¿Tienen atención preferente o algún protocolo para embarazadas?', 'interno', null, 68),
-    ('q53', 'empresa', 'Nombre del dueño', 'interno', null, 69),
-    ('q54', 'empresa', '¿Tienen otro negocio de comida?', 'interno', null, 70),
-    ('q52', 'empresa', '¿Cuántos trabajadores tienen?', 'interno', null, 71),
-    ('q40', 'empresa', '¿Buscan personal seguido o para reemplazos?', 'interno', null, 72),
-    ('q59', 'empresa', 'Proyectos de la empresa', 'interno', null, 73),
-    ('q60', 'empresa', 'Necesidades', 'interno', null, 74)
+    ('q14', 'oferta', '¿Qué productos son sin gluten?', 'interno', 'Para celíacos. Sirve para confirmar lo que detecta la carta', 31),
+    ('q78', 'oferta', '¿Toman medidas para que los productos sin gluten no se contaminen con gluten?', 'celiacoSeguro', 'Utensilios, superficies y aceite separados. Si dicen que no o no saben, la app no mostrará productos sin gluten de este local', 32),
+    ('q18', 'oferta', '¿Tienen carta física o con QR en las mesas?', 'interno', null, 33),
+    ('q19', 'oferta', '¿Tienen tarjetas de presentación del local?', 'interno', null, 34),
+    ('q10', 'oferta', '¿En qué horario hay más gente?', 'horasPeak', null, 35),
+    ('q12', 'oferta', '¿Qué días tienen más público?', 'diasPeak', null, 36),
+    ('q71', 'oferta', '¿Cuánto gasta en promedio una persona?', 'interno', 'Precio promedio por persona. Solo para ti', 37),
+    ('q9', 'oferta', '¿Qué tipo de público va al local?', 'interno', 'Familias, estudiantes, parejas, after office… Solo para ti, no sale en la app', 38),
+    ('q63', 'oferta', '¿Participan en eventos con su propio personal o con otro?', 'interno', null, 39),
+    ('q64', 'oferta', 'En eventos (fondas, ferias), ¿suelen unirse a un puesto?', 'interno', null, 40),
+    ('q35', 'infra', '¿Tienen baño para el público?', 'det:Baño / WC', null, 41),
+    ('q15', 'infra', '¿Tienen WiFi para el público? ¿Cuál es la clave?', 'det:WiFi Disponible', 'Anota la clave tal cual, respetando mayúsculas y minúsculas. Se muestra en la app', 42),
+    ('q58', 'infra', '¿Tienen terraza?', 'det:Terraza', null, 43),
+    ('q16', 'infra', '¿Aceptan mascotas? ¿En todo el local o solo en la terraza?', 'car:Ingreso de Mascotas', null, 44),
+    ('q17', 'infra', '¿Tienen zona para fumadores? ¿Dónde?', 'car:Apto para Fumadores', null, 45),
+    ('q28', 'infra', '¿Tienen estacionamiento?', 'det:Estacionamiento', 'Basta Sí o No. Si quieres, agrega dónde: propio, en la calle, parquímetro…', 46),
+    ('q32', 'infra', '¿Tienen bicicletero o lugar para dejar bicicletas?', 'det:Bicicletero', null, 47),
+    ('q27', 'infra', '¿Tienen acceso para personas en silla de ruedas o con movilidad reducida?', 'det:Acceso Discapacitados', null, 48),
+    ('q29', 'infra', '¿Tienen segundo piso para el público?', 'car:Segundo piso', null, 49),
+    ('q31', 'infra', '¿Tienen barra de tragos?', 'det:Barra de tragos', 'Una barra para pedir y tomar algo. Un mesón para pagar no cuenta', 50),
+    ('q25', 'infra', '¿Tienen aire acondicionado o ventilación?', 'car:Aire Acondicionado / Ventilación', null, 51),
+    ('q72', 'infra', '¿Tienen calefacción?', 'det:Calefacción', null, 52),
+    ('q70', 'infra', '¿Hay enchufes para cargar el celular o el computador?', 'car:Enchufes para cargar', null, 53),
+    ('q69', 'infra', '¿Tienen algo para niños? (silla de bebé, juegos, menú infantil)', 'det:Espacio para niños', null, 54),
+    ('q68', 'infra', '¿Tienen música en vivo o shows? ¿Qué días?', 'det:Música en vivo', null, 55),
+    ('q66', 'infra', '¿Tienen cámaras de seguridad o guardia?', 'car:Seguridad Completa', null, 56),
+    ('q33', 'infra', '¿El local tiene alguna temática o estilo de decoración?', 'tematica', null, 57),
+    ('q30', 'infra', '¿Para cuántas personas hay capacidad? (sillas y mesas)', 'interno', 'Solo para ti, no sale en la app', 58),
+    ('q73', 'relacion', '¿Quieren recibir cada mes, por correo, la lista de sus mejores clientes de la app (Top 50)?', 'top50:recibe', 'Es gratis y opcional. Solo incluye a clientes que aceptaron compartir su nombre; deben usarla solo para ofrecerles un beneficio y borrarla al mes', 59),
+    ('q75', 'relacion', '¿Qué beneficio le darían a su Top 50?', 'beneficioTop50', 'Ej: 10% de descuento mostrando el código MESAGOURMET. Lo ven los clientes en su perfil', 60),
+    ('q76', 'relacion', '¿Les interesa aparecer destacados en la app (plan de patrocinio)?', 'interno', 'Incluye estadísticas mensuales de cuánta gente llegó al local por la app', 61),
+    ('q62', 'relacion', 'La casa invita', 'interno', null, 62),
+    ('q61', 'relacion', 'Compromisos', 'interno', null, 63),
+    ('q36', 'relacion', '¿Hacen sorteos?', 'interno', null, 64),
+    ('q37', 'relacion', '¿Qué hacen en fechas especiales?', 'interno', 'Día de la Madre, Fiestas Patrias, San Valentín…', 65),
+    ('q38', 'relacion', '¿Tienen alguna iniciativa social o ambiental?', 'interno', null, 66),
+    ('q39', 'relacion', '¿Tienen socios o alianzas estratégicas?', 'interno', null, 67),
+    ('q41', 'relacion', '¿El local está preparado para atender a personas con discapacidad visual, auditiva o cognitiva?', 'interno', null, 68),
+    ('q65', 'relacion', '¿Tienen atención preferente o algún protocolo para embarazadas?', 'interno', null, 69),
+    ('q53', 'empresa', 'Nombre del dueño', 'interno', null, 70),
+    ('q54', 'empresa', '¿Tienen otro negocio de comida?', 'interno', null, 71),
+    ('q52', 'empresa', '¿Cuántos trabajadores tienen?', 'interno', null, 72),
+    ('q40', 'empresa', '¿Buscan personal seguido o para reemplazos?', 'interno', null, 73),
+    ('q59', 'empresa', 'Proyectos de la empresa', 'interno', null, 74),
+    ('q60', 'empresa', 'Necesidades', 'interno', null, 75)
 on conflict (id) do update set seccion = excluded.seccion, texto = excluded.texto, uso = excluded.uso,
     sugerencia = excluded.sugerencia, orden = excluded.orden;
 
@@ -158,6 +166,15 @@ update public.locales set caracteristicas_detalle = caracteristicas_detalle - 'E
 where caracteristicas_detalle->>'Estacionamiento' = 'En';
 update public.locales set caracteristicas_detalle = jsonb_set(caracteristicas_detalle, '{WiFi Disponible}', '"Clave: quempanadas"')
 where caracteristicas_detalle->>'WiFi Disponible' = 'Quempanadas';
+
+-- Preguntas de características respondidas solo con "Sí": la etiqueta queda, sin detalle (ej. Bicicletero de Carlota)
+update public.locales l set caracteristicas_detalle = l.caracteristicas_detalle - array(
+    select substr(p.uso, 5) from public.encuesta_preguntas p
+    join public.encuestas_locales e on e.local_id = l.id
+    where p.uso ~ '^(det|car):' and coalesce(e.respuestas->>p.id, '') ~* '^\s*(s[ií]|x|ok)\s*[.!]?\s*$'
+      and substr(p.uso, 5) <> 'Ingreso de Mascotas' and substr(p.uso, 5) <> 'Apto para Fumadores'
+)
+where exists (select 1 from public.encuestas_locales e where e.local_id = l.id);
 
 -- Detalles de características que el local ya no tiene (o vacíos)
 update public.locales l set caracteristicas_detalle = coalesce((
