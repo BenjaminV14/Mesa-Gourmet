@@ -10,13 +10,14 @@ import { requireAccount } from './auth.js';
 import { userReviews, checkLevelUp, computeLogros } from './gamification.js';
 import { isSponsored } from './sponsors.js';
 import { compressImage, verifyDishPhoto } from '../services/ai.js';
+import { leerDatosFoto, revisarDatosFoto, DIAS_VALIDOS } from '../services/foto-fecha.js';
 import { nuevoId } from '../utils/id.js';
 import { track } from '../services/analytics.js';
 
 export const PRECIOS_PERSONA = ['Menos de $5.000', '$5.000 – $10.000', '$10.000 – $15.000', '$15.000 – $25.000', 'Más de $25.000'];
 const MAX_FOTOS_PLATO = 4;
 
-let photos = {};        // índice del plato -> [dataURL, ...]
+let photos = {};        // índice del plato -> [{ url, fecha, sinFecha }, ...]
 let onPublished = () => {};
 
 export function setReviewPublishedHandler(fn) {
@@ -53,7 +54,7 @@ export function openReviewForm(localId) {
         </header>
         <form id="reviewForm" class="review-form" data-local="${local.id}" novalidate>
             <fieldset>
-                <legend>¿Qué consumiste? <small>Puedes subir fotos de cada plato o bebestible</small></legend>
+                <legend>¿Qué consumiste? <small>Sube al menos una foto tomada en el local (de los últimos ${DIAS_VALIDOS} días): así sabemos que la visita es real</small></legend>
                 <div class="dish-picker">
                     ${items.map((item, idx) => `
                         <div class="dish-selector-card" id="dishCard_${idx}">
@@ -105,8 +106,8 @@ function showFormError(message) {
 
 function renderThumbs(idx) {
     const box = document.getElementById(`dishThumbs_${idx}`);
-    box.innerHTML = (photos[idx] || []).map((url, i) => `
-        <span class="dish-thumb"><img src="${url}" alt=""><button type="button" data-action="dish-photo-remove" data-idx="${idx}" data-i="${i}" aria-label="Quitar foto">✕</button></span>`).join('');
+    box.innerHTML = (photos[idx] || []).map((f, i) => `
+        <span class="dish-thumb ${f.sinFecha ? 'sin-fecha' : ''}" ${f.sinFecha ? 'title="Esta foto no trae la fecha en que se tomó: la reseña la revisará un moderador"' : ''}><img src="${f.url}" alt="">${f.sinFecha ? '<i class="dish-thumb-tag">sin fecha</i>' : ''}<button type="button" data-action="dish-photo-remove" data-idx="${idx}" data-i="${i}" aria-label="Quitar foto">✕</button></span>`).join('');
 }
 
 function readScore(id) {
@@ -125,6 +126,9 @@ async function submitReview(event) {
         .filter(s => s.checked);
     if (!seleccion.length) return showFormError('Marca al menos un plato o bebestible que consumiste.');
 
+    const conFotos = seleccion.filter(s => (photos[s.idx] || []).length);
+    if (!conFotos.length) return showFormError('Sube al menos una foto de lo que consumiste, tomada en el local.');
+
     const comentario = document.getElementById('reviewText').value.trim();
     if (comentario.length < 10) return showFormError('Cuéntanos un poco más (mínimo 10 caracteres).');
 
@@ -138,13 +142,15 @@ async function submitReview(event) {
     let rechazada = false;
     const pendientes = [];
     for (const s of seleccion) {
-        for (const [i, url] of (photos[s.idx] || []).entries()) {
-            const v = await verifyDishPhoto(url, s.item.nombre);
+        for (const f of photos[s.idx] || []) {
+            const v = await verifyDishPhoto(f.url, s.item.nombre);
             if (v.estado === 'rechazada') rechazada = true;
             if (v.estado !== 'aprobada') pendientes.push(v.motivo);
-            fotos.push({ id: nuevoId(), item: s.item.nombre, url, likes: 0, likedBy: [], verificada: v.estado === 'aprobada' });
+            fotos.push({ id: nuevoId(), item: s.item.nombre, url: f.url, likes: 0, likedBy: [], verificada: v.estado === 'aprobada', tomada: f.fecha ? f.fecha.toISOString() : null });
         }
     }
+    // Si ninguna foto trae la fecha en que se tomó, no se puede comprobar la visita: la revisa un moderador
+    const sinFecha = fotos.every(f => !f.tomada);
 
     const previousCount = userReviews().length;
     const previousLogros = computeLogros();
@@ -167,7 +173,8 @@ async function submitReview(event) {
         isDrink: seleccion.every(s => s.item.isDrink),
         // Para la misión "Cazador de promociones"
         enPromocion: isSponsored(local) || promoActiva,
-        estado: rechazada ? 'pendiente' : 'publicada'
+        estado: rechazada || sinFecha ? 'pendiente' : 'publicada',
+        motivoRevision: rechazada ? 'Foto dudosa' : sinFecha ? 'Fotos sin fecha' : ''
     };
 
     db.reviews.unshift(review);
@@ -179,7 +186,8 @@ async function submitReview(event) {
 
     document.getElementById('reviewModal').remove();
     if (review.estado === 'pendiente') {
-        showToast('Una foto no parece corresponder al plato. Tu reseña quedó en revisión.', 4500);
+        showToast(rechazada ? 'Una foto no parece corresponder al plato. Tu reseña quedó en revisión.'
+            : 'Tus fotos no traen la fecha en que se tomaron, así que un moderador revisará la reseña antes de publicarla.', 5000);
     } else {
         showToast('¡Reseña publicada! Gracias por tu aporte.');
         checkLevelUp(previousCount, previousLogros);
@@ -207,7 +215,12 @@ registerActions({
             if (photos[idx].length >= MAX_FOTOS_PLATO) { showToast(`Máximo ${MAX_FOTOS_PLATO} fotos por plato.`); break; }
             if (file.size > 15 * 1024 * 1024) { showToast('Una foto pesa más de 15 MB y no se agregó.'); continue; }
             try {
-                photos[idx].push(await compressImage(file));
+                // Fecha y lugar de la foto: se leen antes de achicarla (al achicarla se pierden)
+                const local = getLocal(Number(document.getElementById('reviewForm')?.dataset.local));
+                const datos = await leerDatosFoto(file);
+                const revision = revisarDatosFoto(datos, local);
+                if (!revision.ok) { showToast(revision.motivo, 5500); continue; }
+                photos[idx].push({ url: await compressImage(file), fecha: datos.fecha, sinFecha: revision.sinFecha });
             } catch (err) {
                 showToast(err.message);
             }

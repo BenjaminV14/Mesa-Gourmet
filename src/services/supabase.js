@@ -30,6 +30,7 @@ const ERRORES = [
     [/rate limit|too many requests|security purposes/i, 'Demasiados intentos seguidos. Espera un minuto e inténtalo de nuevo.'],
     [/provider is not enabled|unsupported provider/i, 'El ingreso con Google aún no está activado.'],
     [/duplicate key.*username|perfiles_username_key/i, 'Ese nombre de usuario ya está en uso.'],
+    [/captcha/i, 'No pudimos comprobar que no eres un robot. Recarga la página e inténtalo de nuevo.'],
     [/failed to fetch|network/i, 'No hay conexión con el servidor. Revisa tu internet.']
 ];
 

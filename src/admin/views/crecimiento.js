@@ -41,7 +41,7 @@ export function numerosDelMes(id, d) {
     const nota = resenas.length ? resenas.reduce((s, r) => s + (r.notaComida + r.notaServicio) / 2, 0) / resenas.length : null;
     return {
         vistas: contar('vista'),
-        personas: new Set(m.filter(x => x.tipo === 'vista').map(x => x.usuarioId || `anon-${x.fecha}`)).size,
+        personas: new Set(m.filter(x => x.tipo === 'vista').map(x => x.usuarioId || x.visitante || `anon-${x.fecha}`)).size,
         whatsapp: contar('whatsapp'),
         llamar: contar('llamar'),
         comoLlegar: contar('como_llegar'),

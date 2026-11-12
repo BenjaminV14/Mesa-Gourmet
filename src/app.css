@@ -759,3 +759,11 @@ button.profile-avatar-large img { border-radius: 50%; }
 /* Reseña de un local que cerró (solo la ve su autor en su perfil) */
 .review-local.is-closed { opacity: 0.75; cursor: default; }
 .closed-tag { font-size: 0.72rem; background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); padding: 1px 7px; border-radius: 8px; margin-left: 4px; }
+
+/* Foto sin fecha (la reseña la revisa un moderador) */
+.dish-thumb.sin-fecha { outline: 2px solid #f59e0b; outline-offset: -2px; }
+.dish-thumb-tag { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, .7); color: #fbbf24; font-size: .58rem; font-style: normal; text-align: center; padding: 1px 0; }
+
+/* Verificación anti-robots: solo ocupa espacio si Cloudflare pide un desafío */
+.captcha-box:empty { display: none; }
+.captcha-box { margin: 4px 0; min-height: 0; }

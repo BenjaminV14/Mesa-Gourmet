@@ -5,13 +5,24 @@ import { tipoCaso, registrarDecision, sugerencia } from './manual.js';
 
 const findReview = id => db.reviews.find(r => String(r.id) === String(id));
 
+/** Por qué una reseña quedó en revisión: comentario marcado por la IA, fotos sin fecha o foto dudosa */
+export function motivoRevision(r) {
+    const comentario = db.moderation.find(m => m.tipo === 'comentario' && String(m.reviewId) === String(r.id));
+    if (comentario) return { categoria: 'Comentario', texto: comentario.motivo || 'Comentario marcado por la IA' };
+    if (r.motivoRevision === 'Fotos sin fecha') return { categoria: 'Fotos sin fecha', texto: 'Las fotos no traen la fecha en que se tomaron: no se puede comprobar la visita' };
+    return { categoria: 'Foto dudosa', texto: r.motivoRevision || 'Foto dudosa' };
+}
+
 /** Lista de casos pendientes: { tipo, id, detalle, descripcion } */
 export function casosPendientes() {
     const casos = [];
-    db.reviews.filter(r => r.estado === 'pendiente').forEach(r => casos.push({
-        base: 'resena-revision', tipo: tipoCaso('resena-revision'), id: r.id, detalle: '',
-        descripcion: `Reseña de ${r.usuario.nombre} en ${getLocal(r.localId)?.nombre || '¿?'}`
-    }));
+    db.reviews.filter(r => r.estado === 'pendiente').forEach(r => {
+        const { categoria } = motivoRevision(r);
+        casos.push({
+            base: 'resena-revision', tipo: tipoCaso('resena-revision', categoria), id: r.id, detalle: categoria,
+            descripcion: `Reseña de ${r.usuario.nombre} en ${getLocal(r.localId)?.nombre || '¿?'}`
+        });
+    });
     db.moderation.filter(m => m.tipo === 'foto').forEach(m => {
         const r = findReview(m.reviewId);
         if (!r || r.estado !== 'publicada') return;
@@ -38,6 +49,7 @@ export function resolver(base, id, decision, { anotar = true, guardar = true } =
     if (base === 'resena-revision') {
         const r = findReview(id);
         if (!r) return '';
+        tipo = tipoCaso('resena-revision', motivoRevision(r).categoria);
         r.estado = decision === 'aprobar' ? 'publicada' : 'rechazada';
         if (decision === 'aprobar') (r.fotos || []).forEach(f => { f.verificada = true; });
         db.moderation = db.moderation.filter(m => m.reviewId !== r.id);

@@ -81,10 +81,11 @@ function resenaDesdeFila(r, misLikes, misFotoLikes, uid) {
         id: r.id, localId: r.local_id, usuario: usuarioDesdePerfil(r.autor), fecha: r.creado_at,
         productos: r.productos || [], notaComida: Number(r.nota_comida), notaServicio: Number(r.nota_servicio),
         comentario: r.comentario, precioPersona: r.precio_persona, enPromocion: r.en_promocion, estado: r.estado,
+        motivoRevision: r.motivo_revision || '',
         likes: r.likes || 0, likedBy: misLikes.has(r.id) ? [uid] : [],
         fotos: (r.resena_fotos || []).sort((a, b) => new Date(a.creado_at) - new Date(b.creado_at)).map(f => ({
             id: f.id, item: f.plato, url: urlPublica(FOTOS, f.path), path: f.path, verificada: f.verificada,
-            likes: f.likes || 0, likedBy: misFotoLikes.has(f.id) ? [uid] : [], fecha: f.creado_at
+            likes: f.likes || 0, likedBy: misFotoLikes.has(f.id) ? [uid] : [], fecha: f.creado_at, tomada: f.tomada_at || null
         }))
     };
 }
@@ -122,7 +123,7 @@ export async function cargarTodo({ admin = false } = {}) {
         const opcional = consulta => lista(consulta).catch(() => []);
         const desde = new Date(Date.now() - 400 * 86400000).toISOString();
         [metricas, favoritos, quiero, decisiones, reglas, perfiles] = await Promise.all([
-            opcional(supabase.from('metricas_locales').select('local_id, tipo, usuario_id, creado_at').gte('creado_at', desde).limit(50000)),
+            opcional(supabase.from('metricas_locales').select('*').gte('creado_at', desde).limit(50000)),
             opcional(supabase.from('favoritos').select('local_id, usuario_id, creado_at')),
             opcional(supabase.from('quiero_ir').select('local_id, usuario_id, creado_at')),
             opcional(supabase.from('decisiones_admin').select('*').order('creado_at', { ascending: false }).limit(2000)),
@@ -157,7 +158,7 @@ export async function cargarTodo({ admin = false } = {}) {
     db.videos = videos.map(v => videoDesdeFila(v, misVideoLikes, uid));
     db.cierres = cierres.map(c => ({ mes: c.mes, fecha: c.creado_at, distinciones: c.distinciones || {}, clientes: c.clientes || null }));
     if (admin) {
-        db.metricas = metricas.map(m => ({ localId: m.local_id, tipo: m.tipo, usuarioId: m.usuario_id, fecha: m.creado_at }));
+        db.metricas = metricas.map(m => ({ localId: m.local_id, tipo: m.tipo, usuarioId: m.usuario_id, visitante: m.visitante || null, fecha: m.creado_at }));
         db.favoritosLocales = favoritos.map(f => ({ localId: f.local_id, usuarioId: f.usuario_id, fecha: f.creado_at }));
         db.quieroIrLocales = quiero.map(f => ({ localId: f.local_id, usuarioId: f.usuario_id, fecha: f.creado_at }));
         db.decisiones = decisiones.map(d => ({ id: `dec-${d.id}`, tipo: d.tipo, caso: d.caso, decision: d.decision, nota: d.nota, fecha: d.creado_at }));
@@ -172,7 +173,8 @@ export async function cargarTodo({ admin = false } = {}) {
         fecha: r.creado_at, usuario: { id: r.usuario_id, nombre: r.autor?.nombre || 'Usuario' }
     }));
     // Moderación: lo que marcó la IA + fotos de reseñas publicadas que aún nadie verificó
-    const marcadas = moderacion.map(m => ({ id: `mod-${m.id}`, dbId: m.id, tipo: 'foto', reviewId: m.resena_id, fotoId: m.foto_id, motivo: m.motivo, fecha: m.creado_at }));
+    // Sin foto_id: la IA marcó el comentario de la reseña
+    const marcadas = moderacion.map(m => ({ id: `mod-${m.id}`, dbId: m.id, tipo: m.foto_id ? 'foto' : 'comentario', reviewId: m.resena_id, fotoId: m.foto_id, motivo: m.motivo, fecha: m.creado_at }));
     const sinVerificar = admin ? db.reviews
         .filter(r => r.estado === 'publicada' && r.fotos.some(f => !f.verificada) && !marcadas.some(m => m.reviewId === r.id))
         .map(r => ({ id: `sinv-${r.id}`, tipo: 'foto', reviewId: r.id, motivo: 'Foto sin verificar', fecha: r.fecha })) : [];
@@ -360,25 +362,32 @@ function tomarFoto() {
     };
 }
 
+// Inserta una fila con columnas nuevas (actualizacion-6.sql); si la base aún no las tiene, la inserta sin ellas
+async function insertarConNuevas(tabla, fila, nuevas) {
+    const { error } = await supabase.from(tabla).insert({ ...fila, ...nuevas });
+    if (!error) return;
+    if (!/column|schema cache|PGRST204/i.test(`${error.code} ${error.message}`)) throw error;
+    const { error: e2 } = await supabase.from(tabla).insert(fila);
+    if (e2) throw e2;
+}
+
 async function subirResena(r, uid) {
-    const { error } = await supabase.from('resenas').insert({
+    await insertarConNuevas('resenas', {
         id: r.id, local_id: r.localId, usuario_id: uid, productos: r.productos, nota_comida: r.notaComida,
         nota_servicio: r.notaServicio, comentario: r.comentario, precio_persona: r.precioPersona || null,
         en_promocion: !!r.enPromocion, estado: r.estado === 'pendiente' ? 'pendiente' : 'publicada'
-    });
-    if (error) throw error;
+    }, { motivo_revision: r.motivoRevision || null });
     for (const f of r.fotos || []) {
         if (!ES_UUID.test(f.id)) continue;
         const path = f.url?.startsWith('data:') ? await subirImagen(FOTOS, `${uid}/${r.id}/${f.id}.jpg`, f.url) : f.path;
         if (!path) continue;
-        const { error: e2 } = await supabase.from('resena_fotos').insert({ id: f.id, resena_id: r.id, usuario_id: uid, plato: f.item, path });
-        if (e2) throw e2;
+        await insertarConNuevas('resena_fotos', { id: f.id, resena_id: r.id, usuario_id: uid, plato: f.item, path }, { tomada_at: f.tomada || null });
         f.path = path;
         f.url = urlPublica(FOTOS, path);
         f.verificada = false;
     }
-    // La IA revisa las fotos en el servidor (si la función está publicada; si no, quedan para el panel)
-    if ((r.fotos || []).length) supabase.functions.invoke('verificar-foto', { body: { resena_id: r.id } }).catch(() => {});
+    // La IA revisa las fotos y el comentario en el servidor (si la función está publicada; si no, quedan para el panel)
+    supabase.functions.invoke('verificar-foto', { body: { resena_id: r.id } }).catch(() => {});
 }
 
 async function subirVideo(v, uid) {

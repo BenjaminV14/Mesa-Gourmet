@@ -32,7 +32,8 @@ let haySesionGuardada = false;
 try { haySesionGuardada = remoto && (!!localStorage.getItem('mg-sesion') || /[?&]code=/.test(location.search)); } catch { /* sin acceso al almacenamiento */ }
 const splashEl = document.getElementById('splashScreen');
 const registroEl = document.getElementById('registerScreen');
-if (haySesionGuardada) {
+// En línea se entra directo a mirar los locales (sin cuenta): mientras cargan se muestra el logo
+if (haySesionGuardada || remoto) {
     registroEl.classList.add('hidden');
     splashEl.classList.remove('hidden');
     splashEl.style.opacity = '1';
@@ -46,8 +47,16 @@ function mostrarIngreso() {
 
 let entrandoApp = false;
 function enterApp({ withSplash = true } = {}) {
+    // Ya dentro de la app (un invitado que acaba de ingresar o crear su cuenta): se cierra el ingreso y se refresca
+    if (!entrandoApp && !document.getElementById('mainContent').classList.contains('hidden')) {
+        registroEl.classList.add('hidden');
+        updateHeader();
+        switchTab(state.currentView || 'inicio');
+        setTimeout(showWelcomeIfNeeded, 600);
+        return;
+    }
     // Puede llamarse dos veces (al cargar y al volver de Google): solo cuenta la primera
-    if (entrandoApp || !document.getElementById('mainContent').classList.contains('hidden')) return;
+    if (entrandoApp) return;
     entrandoApp = true;
     registroEl.classList.add('hidden');
     const show = () => {
@@ -101,6 +110,10 @@ if (remoto) {
 } else if (state.user) {
     // Sesión guardada: entra directo sin pedir login otra vez
     enterApp({ withSplash: false });
+} else {
+    // Sin cuenta se puede mirar todo; la cuenta se pide al reseñar, guardar o seguir
+    state.isGuest = true;
+    enterApp();
 }
 
 // En línea: se cargan los locales y reseñas desde Supabase; si ya había sesión, entra directo
@@ -118,8 +131,12 @@ async function iniciarEnLinea() {
             await cargarTodo();
             enterApp({ withSplash: false });
         } else {
-            mostrarIngreso();
+            // Sin sesión: se entra a mirar como invitado; la cuenta se pide al reseñar, guardar o seguir
             await cargarTodo();
+            if (!state.user) {
+                state.isGuest = true;
+                enterApp({ withSplash: false });
+            }
         }
     } catch (err) {
         console.error(err);

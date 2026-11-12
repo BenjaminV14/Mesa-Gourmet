@@ -8,6 +8,18 @@ import { esc } from '../utils/html.js';
 import { toast } from './ui.js';
 import { cerrarMesPendiente } from '../data/metrics.js';
 import { persist } from '../data/store.js';
+import { montarCaptcha, tokenCaptcha } from '../services/captcha.js';
+
+const captchaEl = () => document.getElementById('admCaptcha');
+
+/** Llama a Supabase con un token anti-robots nuevo; devuelve { data, error } aunque falle la verificación */
+async function conCaptcha(llamada) {
+    try {
+        return await llamada(await tokenCaptcha(captchaEl()));
+    } catch (error) {
+        return { data: null, error };
+    }
+}
 
 let alEntrar = () => {};
 
@@ -20,6 +32,7 @@ function pantallaIngreso(mensaje = '', tipo = 'error') {
             <form id="admLoginForm" class="adm-form" novalidate>
                 <label class="adm-field full" for="admEmail"><span>Correo</span><input type="email" id="admEmail" autocomplete="email" required></label>
                 <label class="adm-field full" for="admPassword"><span>Contraseña</span><input type="password" id="admPassword" autocomplete="current-password" required></label>
+                <div class="captcha-box" id="admCaptcha"></div>
                 ${mensaje ? `<p class="${tipo === 'error' ? 'adm-error' : 'adm-help'}">${mensaje}</p>` : ''}
                 <button type="button" class="adm-link" data-action="adm-login-forgot">¿Olvidaste tu contraseña?</button>
                 <div class="adm-form-actions">
@@ -28,10 +41,12 @@ function pantallaIngreso(mensaje = '', tipo = 'error') {
                 </div>
             </form>
         </section>`;
+    montarCaptcha(captchaEl());
     document.getElementById('admLoginForm').addEventListener('submit', async e => {
         e.preventDefault();
         const correo = correoEscrito();
-        const { data, error } = await supabase.auth.signInWithPassword({ email: correo, password: document.getElementById('admPassword').value });
+        const password = document.getElementById('admPassword').value;
+        const { data, error } = await conCaptcha(captchaToken => supabase.auth.signInWithPassword({ email: correo, password, options: { captchaToken } }));
         if (error) {
             const sinConfirmar = /email not confirmed/i.test(error.message || '');
             pantallaIngreso(esc(mensajeError(error)) + (sinConfirmar ? ' <button type="button" class="adm-link" data-action="adm-login-resend">Reenviar correo de confirmación</button>' : ''));
@@ -80,14 +95,14 @@ registerActions({
     },
     'adm-login-resend': async () => {
         const email = correoEscrito();
-        const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: urlDeRetorno() } });
+        const { error } = await conCaptcha(captchaToken => supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: urlDeRetorno(), captchaToken } }));
         pantallaIngreso(error ? esc(mensajeError(error)) : `Te enviamos otro correo de confirmación a <b>${esc(email)}</b>. Ábrelo (revisa spam) y vuelve a entrar.`, error ? 'error' : 'info');
         document.getElementById('admEmail').value = email;
     },
     'adm-login-forgot': async () => {
         const email = correoEscrito();
         if (!email) return pantallaIngreso('Escribe tu correo y vuelve a tocar "¿Olvidaste tu contraseña?".');
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDeRetorno().replace(/admin\.html$/, '') });
+        const { error } = await conCaptcha(captchaToken => supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDeRetorno().replace(/admin\.html$/, ''), captchaToken }));
         pantallaIngreso(error ? esc(mensajeError(error)) : `Te enviamos un link a <b>${esc(email)}</b> para crear una contraseña nueva. Después vuelve a este panel.`, error ? 'error' : 'info');
         document.getElementById('admEmail').value = email;
     },

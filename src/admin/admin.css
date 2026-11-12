@@ -404,3 +404,5 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .adm-sel-bar span { font-weight: 600; margin-right: auto; }
 .adm-menu-table tr.is-selected td { background: var(--adm-wine-soft); }
 .adm-menu-table td small.adm-muted-cell { display: block; margin-top: 3px; font-size: 0.75rem; }
+.captcha-box:empty { display: none; }
+.captcha-box { margin: 4px 0; }

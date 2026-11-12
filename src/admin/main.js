@@ -4,7 +4,7 @@ import { db, persist } from '../data/store.js';
 import { cerrarMesPendiente } from '../data/metrics.js';
 import { registerActions } from '../ui/actions.js';
 import { renderResumen, setResumenRerender } from './views/resumen.js';
-import { aplicarReglasAutomaticas } from './moderar.js';
+import { aplicarReglasAutomaticas, casosPendientes } from './moderar.js';
 import { toast } from './ui.js';
 import { renderLocales, setLocalesRerender, editLocal } from './views/locales.js';
 import { renderCartas, setCartasRerender, selectCartaLocal } from './views/cartas.js';
@@ -29,7 +29,7 @@ const VIEWS = {
     encuesta: { label: 'Encuesta a locales', icon: '📝', render: renderEncuesta },
     patrocinios: { label: 'Destacados', icon: '★', render: renderPatrocinios },
     eventos: { label: 'Eventos y promos', icon: '📅', render: renderEventos },
-    moderacion: { label: 'Moderación', icon: '🛡️', render: renderModeracion, badge: () => db.reviews.filter(r => r.estado === 'pendiente').length + db.moderation.length + db.videos.filter(v => v.estado === 'pendiente').length + db.reports.filter(r => r.tipo === 'resena' && r.estado === 'abierto').length },
+    moderacion: { label: 'Moderación', icon: '🛡️', render: renderModeracion, badge: () => casosPendientes().length },
     reportes: { label: 'Reportes', icon: '⚠️', render: renderReportes, badge: () => db.reports.filter(r => r.tipo !== 'resena' && r.estado === 'abierto').length },
     metricas: { label: 'Top y clientes', icon: '🏆', render: renderMetricas, badge: () => nuevosVip().length },
     crecimiento: { label: 'Reportes para locales', icon: '📈', render: renderCrecimiento },

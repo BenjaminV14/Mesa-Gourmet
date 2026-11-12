@@ -6,7 +6,7 @@ import { normalize } from '../utils/text.js';
 import { nuevoId } from '../utils/id.js';
 
 export const CASOS = {
-    'resena-revision': { titulo: 'Reseña con foto dudosa (en revisión)', opciones: { aprobar: 'Publicar la reseña', rechazar: 'Rechazar la reseña' } },
+    'resena-revision': { titulo: 'Reseña en revisión', opciones: { aprobar: 'Publicar la reseña', rechazar: 'Rechazar la reseña' } },
     foto: { titulo: 'Foto que la IA no pudo confirmar', opciones: { ok: 'Dejar la foto', quitar: 'Quitar la foto' } },
     'resena-reportada': { titulo: 'Reseña reportada por un usuario', opciones: { mantener: 'Mantener la reseña', ocultar: 'Ocultar la reseña' } },
     video: { titulo: 'Video por aprobar', opciones: { publicar: 'Publicar el video', rechazar: 'Rechazar el video' } }
@@ -16,7 +16,8 @@ export const CASOS = {
 export const REGLAS_FIJAS = [
     { titulo: 'Clientes VIP', texto: 'Quien tiene 5 visitas o más a un local en el mes queda como VIP de ese local al cerrar el mes (el último día a las 23:59), y lo es durante todo el mes siguiente. Cada local ve su lista de clientes frecuentes al cierre.' },
     { titulo: 'Cierre del mes', texto: 'El último día de cada mes a las 23:59 se guardan solos el Top 50, el Top 10 de cada categoría y los clientes de cada local.' },
-    { titulo: 'Fotos de reseñas', texto: 'Las reseñas se publican al instante. La IA revisa cada foto en segundo plano y solo te avisa aquí cuando no corresponde al plato.' },
+    { titulo: 'Fotos de reseñas', texto: 'Las reseñas se publican al instante. La IA revisa cada foto y el comentario en segundo plano y solo te avisa aquí cuando algo no corresponde (foto de otro plato, insultos, datos personales, publicidad).' },
+    { titulo: 'Visita comprobada', texto: `Cada reseña necesita al menos una foto tomada en los últimos 3 días; si la foto trae ubicación, debe ser a menos de 400 m del local. Si ninguna foto trae la fecha (capturas o fotos reenviadas), la reseña queda en revisión.` },
     { titulo: 'Promociones y eventos', texto: 'Una promoción con fecha de término desaparece sola al día siguiente; un evento deja de mostrarse 4 horas después de empezar.' },
     { titulo: 'Destacados', texto: 'Al vencer el plan, el local deja de salir primero y pierde la estrella sin que tengas que hacer nada.' }
 ];

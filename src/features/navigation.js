@@ -54,8 +54,8 @@ export function updateHeader() {
         avatar.innerHTML = avatarContent(state.user);
         name.textContent = state.user.nombre.split(' ')[0];
     } else {
-        avatar.textContent = 'G';
-        name.textContent = 'Invitado';
+        avatar.textContent = '👤';
+        name.textContent = 'Ingresar';
     }
 }
 

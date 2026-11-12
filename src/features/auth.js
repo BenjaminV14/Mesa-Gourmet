@@ -16,6 +16,9 @@ function nombreDesdeCorreo(email) {
 import { track } from '../services/analytics.js';
 import { remoto, supabase, urlDeRetorno, mensajeError, googleActivo } from '../services/supabase.js';
 import { cargarUsuario, cargarTodo } from '../data/remoto.js';
+import { montarCaptcha, tokenCaptcha, reiniciarCaptcha } from '../services/captcha.js';
+
+const captchaEl = () => document.getElementById('authCaptcha');
 
 let onEnterApp = () => {};
 let entrando = false;
@@ -26,6 +29,7 @@ export function initAuth({ onEnter, arrancando = () => false }) {
     setMode('login');
     document.getElementById('authForm').addEventListener('submit', handleSubmit);
     if (remoto) {
+        montarCaptcha(captchaEl());
         // Al volver desde el correo de confirmación o desde Google, Supabase trae la sesión en la dirección
         supabase.auth.onAuthStateChange((event, session) => {
             // Se espera un instante: dentro de este aviso no se deben hacer otras consultas a Supabase
@@ -103,9 +107,10 @@ async function handleSubmitRemoto(nombre, email, password, extra = {}) {
     boton.textContent = 'Un momento…';
     showError('');
     try {
+        const captchaToken = await tokenCaptcha(captchaEl());
         if (mode === 'register') {
             const { data, error } = await supabase.auth.signUp({
-                email, password, options: { data: { nombre, apellido: extra.apellido || '', comparte_con_locales: !!extra.comparte }, emailRedirectTo: urlDeRetorno() }
+                email, password, options: { data: { nombre, apellido: extra.apellido || '', comparte_con_locales: !!extra.comparte }, emailRedirectTo: urlDeRetorno(), captchaToken }
             });
             if (error) throw error;
             if (!data.session) {
@@ -115,13 +120,14 @@ async function handleSubmitRemoto(nombre, email, password, extra = {}) {
             }
             await entrarConSesion(data.session, 'registro');
         } else {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
             if (error) throw error;
             await entrarConSesion(data.session, 'inicio_sesion');
         }
     } catch (err) {
         showError(mensajeError(err));
     } finally {
+        reiniciarCaptcha(captchaEl());
         boton.disabled = false;
         boton.textContent = texto;
     }
@@ -219,7 +225,14 @@ registerActions({
         const email = document.getElementById('authEmail').value.trim().toLowerCase();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Escribe tu correo arriba y vuelve a tocar "¿Olvidaste tu contraseña?".');
         if (!remoto) return showToast('La recuperación de contraseña funciona en la versión en línea.');
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDeRetorno() });
+        let error;
+        try {
+            ({ error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDeRetorno(), captchaToken: await tokenCaptcha(captchaEl()) }));
+        } catch (err) {
+            error = err;
+        } finally {
+            reiniciarCaptcha(captchaEl());
+        }
         if (error) return showError(mensajeError(error));
         showInfo(`Te enviamos un correo a ${email} con un enlace para crear una contraseña nueva.`);
     },

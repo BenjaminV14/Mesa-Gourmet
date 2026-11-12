@@ -55,3 +55,17 @@ Cada riesgo con su protección y el estado actual. **Demo** = funciona hoy en el
 2. Activar la **verificación en dos pasos** en GitHub, Supabase, Google Cloud y Anthropic.
 3. Usar un **gestor de contraseñas** (Bitwarden es gratis).
 4. Revisar la cola de moderación y los reportes al menos una vez al día al lanzar.
+
+## Protecciones agregadas en noviembre de 2026
+
+- **Visita comprobada**: cada reseña necesita al menos una foto tomada en los últimos 3 días (fecha que guarda
+  la cámara). Si la foto trae ubicación, debe ser a menos de 400 m del local. Si ninguna foto trae fecha
+  (capturas, fotos reenviadas por WhatsApp), la reseña queda en revisión. La base de datos rechaza fotos de más
+  de 3 días (`actualizacion-6.sql`). Ojo: la fecha la entrega el celular, así que frena al usuario común, no a
+  alguien que edite los datos de la foto a propósito.
+- **Comentarios revisados por IA**: la función `verificar-foto` también revisa el texto (insultos a personas,
+  datos personales, publicidad, spam). Las críticas duras pero honestas se publican.
+- **Métricas sin inflar**: cada persona cuenta una vez por local y acción cada 30 minutos, con un tope de 60
+  registros por local por minuto (`limitar_metricas` en `actualizacion-6.sql`).
+- **Captcha** (Cloudflare Turnstile) al crear cuenta, ingresar y recuperar la contraseña, en la app y el panel.
+- **Política de seguridad del navegador (CSP)** en la versión publicada: solo corre el código de la app.

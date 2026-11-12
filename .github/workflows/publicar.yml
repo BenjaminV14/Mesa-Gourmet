@@ -36,6 +36,9 @@ jobs:
           # lo que protege los datos son las reglas de seguridad de la base de datos)
           VITE_SUPABASE_URL: https://gaguteunateuwebyeaax.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_hogqKOydCFyQLtNRb_oB2A_EobgfVC_
+          # Clave de sitio de Cloudflare Turnstile (pública). Se guarda en GitHub > Settings > Secrets and variables >
+          # Actions > pestaña "Variables" con el nombre TURNSTILE_SITE_KEY. Sin ella la app funciona sin captcha.
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -58,6 +58,8 @@ jobs:
           for f in verificar-foto analizar-carta leer-carta; do
             supabase functions deploy "$f" --project-ref "$PROYECTO" --use-api
           done
+          # La programación mensual la llama sin sesión (ver el comentario de la función)
+          supabase functions deploy enviar-top50 --project-ref "$PROYECTO" --use-api --no-verify-jwt
           # El envío del Top 50 lo llama la programación mensual sin clave: la función solo envía meses
           # ya cerrados y nunca dos veces al mismo local (ver supabase/functions/enviar-top50)
           supabase functions deploy enviar-top50 --project-ref "$PROYECTO" --use-api --no-verify-jwt

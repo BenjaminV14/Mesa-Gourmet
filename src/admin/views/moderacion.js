@@ -5,7 +5,7 @@ import { esc, safeUrl } from '../../utils/html.js';
 import { timeAgo } from '../../utils/time.js';
 import { parseVideoUrl } from '../../features/videos.js';
 import { toast, emptyRow, statusPill } from '../ui.js';
-import { resolver } from '../moderar.js';
+import { resolver, motivoRevision } from '../moderar.js';
 import { sugerencia, tipoCaso, nombreDecision } from '../manual.js';
 
 /** "🤖 Sueles: Quitar la foto (4 de 4)" según el manual de decisiones */
@@ -47,11 +47,11 @@ export function renderModeracion() {
 
         <section class="adm-card">
             <h2>Reseñas en revisión (${pendientes.length})</h2>
-            <p class="adm-help">La IA detectó que la foto podría no corresponder al plato. No son visibles hasta que las apruebes.
+            <p class="adm-help">Reseñas ocultas hasta que decidas: la IA marcó una foto o el comentario, o las fotos no traen la fecha en que se tomaron (no se puede comprobar la visita).
             Lo que decidas queda en el <b>manual de decisiones</b> (Resumen): si repites la misma decisión, el asistente la sugiere y puede hacerla sola.</p>
-            ${pendientes.length ? pendientes.map(r => reviewBlock(r, 'Foto dudosa', `
+            ${pendientes.length ? pendientes.map(r => reviewBlock(r, motivoRevision(r).texto, `
                 <button class="adm-btn small primary" data-action="adm-review-approve" data-id="${esc(r.id)}">Aprobar</button>
-                <button class="adm-btn small danger" data-action="adm-review-reject" data-id="${esc(r.id)}">Rechazar</button>`, tipoCaso('resena-revision'))).join('') : emptyRow('Nada pendiente.')}
+                <button class="adm-btn small danger" data-action="adm-review-reject" data-id="${esc(r.id)}">Rechazar</button>`, tipoCaso('resena-revision', motivoRevision(r).categoria))).join('') : emptyRow('Nada pendiente.')}
         </section>
 
         <section class="adm-card">
