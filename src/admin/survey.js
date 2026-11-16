@@ -234,20 +234,31 @@ export function sheetsToResponses(sheets) {
             }))
         };
     }
-    const sheet = sheets.find(s => s.data.length > 1) || sheets[0];
+    // La hoja con más preguntas en la columna A (la planilla sin internet trae además una hoja "Cómo usar")
+    const conPreguntas = s => s.data.filter(r => cellText(r[0]).includes('?')).length;
+    const sheet = [...sheets].filter(s => s.data.length > 1).sort((a, b) => conPreguntas(b) - conPreguntas(a))[0] || sheets[0];
     // Una columna por local: preguntas hacia abajo en la columna A y el nombre de cada local en la fila 1
     const enColumnas = sheet.data.slice(1).filter(r => cellText(r[0]).includes('?')).length >= 5
         && sheet.data[0].slice(1).filter(c => cellText(c)).length >= 1;
     if (enColumnas) {
-        const filas = sheet.data.slice(1).filter(r => cellText(r[0]));
-        const preguntas = ['Nombre del local', ...new Set(filas.map(r => cellText(r[0])))];
-        const respuestas = sheet.data[0].map((nombre, j) => ({ nombre: cellText(nombre), j }))
-            .filter(({ nombre, j }) => j > 0 && nombre && filas.some(r => cellText(r[j])))
+        // Filas de sección ("▸ DATOS BÁSICOS") y columnas de ayuda ("Cómo anotar", "Ejemplo") de la planilla
+        // para llenar sin internet no son preguntas ni locales
+        const filas = sheet.data.slice(1).filter(r => cellText(r[0]) && !cellText(r[0]).startsWith('▸'));
+        const preguntas = [...new Set(['Nombre del local', ...filas.map(r => cellText(r[0]))])];
+        const AYUDA = ['como anotar', 'ejemplo', 'nota', 'notas'];
+        const filaNombre = filas.find(r => normalize(cellText(r[0])) === 'nombre del local');
+        const respuestas = sheet.data[0].map((encabezado, j) => {
+            // El nombre se puede escribir en la fila "Nombre del local" o en el encabezado de la columna
+            const placeholder = /^local \d+$/i.test(cellText(encabezado));
+            return { nombre: cellText(filaNombre?.[j]) || (placeholder ? '' : cellText(encabezado)), encabezado: cellText(encabezado), j };
+        })
+            .filter(({ encabezado, j }) => j > 0 && encabezado && !AYUDA.includes(normalize(encabezado)))
+            .filter(({ nombre, j }) => nombre && filas.some(r => cellText(r[j])))
             .map(({ nombre, j }) => ({
                 fila: `Columna "${nombre}"`,
-                respuestas: { 'Nombre del local': nombre, ...Object.fromEntries(filas.map(r => [cellText(r[0]), r[j]])) }
+                respuestas: { ...Object.fromEntries(filas.map(r => [cellText(r[0]), r[j]])), 'Nombre del local': nombre }
             }));
-        const vacios = sheet.data[0].slice(1).filter(c => cellText(c)).length - respuestas.length;
+        const vacios = sheet.data[0].slice(1).filter(c => cellText(c) && !AYUDA.includes(normalize(cellText(c)))).length - respuestas.length;
         return { formato: `Una columna por local${vacios ? ` (${vacios} locales sin respuestas se omiten)` : ''}`, preguntas, respuestas };
     }
     const [header = [], ...rows] = sheet.data;
