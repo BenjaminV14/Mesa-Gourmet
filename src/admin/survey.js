@@ -24,7 +24,10 @@ export const CARACTERISTICAS_KEYWORDS = {
     'Delivery propio': ['delivery propio', 'reparto propio', 'repartidores propios', 'despacho propio'],
     'Delivery por apps': ['pedidosya', 'pedidos ya', 'uber eats', 'rappi', 'app de delivery', 'apps de delivery', 'empresa de delivery'],
     'Solo mayores de 18': ['solo mayores', 'mayores de 18', 'solo adultos'],
-    'Espacio para niños': ['juegos para ninos', 'zona infantil', 'menu infantil', 'silla de bebe', 'tronas'],
+    // Para familias con niños: cada cosa es su propia etiqueta
+    'Silla de bebé': ['silla de bebe', 'sillas de bebe', 'silla para ninos', 'sillas para ninos', 'silla alta', 'trona', 'tronas'],
+    'Juegos para niños': ['juegos para ninos', 'zona infantil', 'juegos infantiles', 'zona de juegos', 'plaza de juegos'],
+    'Menú infantil': ['menu infantil', 'menu para ninos', 'menu de ninos'],
     'Música en vivo': ['musica en vivo', 'show en vivo', 'tocatas', 'karaoke'],
     'Enchufes para cargar': ['enchufe', 'enchufes', 'cargar el celular', 'cargar el computador'],
     'Acepta reservas': ['reservar alguna mesa', 'reservar mesa', 'reserva de mesa', 'reservas'],

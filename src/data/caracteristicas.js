@@ -5,7 +5,9 @@ const RENOMBRES = {
     'Mascotas (Solo en Terraza)': ['Ingreso de Mascotas', 'Solo en la terraza'],
     'Apto para Fumadores (Solo en Terraza)': ['Apto para Fumadores', 'Solo en la terraza'],
     // "Delivery" a secas venía de la pregunta por las apps (PedidosYa, Uber Eats...)
-    'Delivery': ['Delivery por apps']
+    'Delivery': ['Delivery por apps'],
+    // "Espacio para niños" se separó en Silla de bebé, Juegos para niños y Menú infantil
+    'Espacio para niños': ['Juegos para niños']
 };
 
 // Ya no se usan: "Apto para menores de edad" es lo normal (ahora se marca lo contrario, "Solo mayores de 18")

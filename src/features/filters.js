@@ -9,6 +9,8 @@ import { isSponsored, distanceTo } from './sponsors.js';
 import { search } from './search.js';
 import { track } from '../services/analytics.js';
 
+const GRUPOS = { 'Para niños': ['Silla de bebé', 'Juegos para niños', 'Menú infantil'] };
+
 export const CARACTERISTICAS_FILTRO = [
     ['WiFi Disponible', '📶 WiFi'],
     ['Terraza', '🪑 Terraza'],
@@ -20,7 +22,7 @@ export const CARACTERISTICAS_FILTRO = [
     ['Delivery', '🛵 Delivery'],
     ['Barra de tragos', '🍸 Barra de tragos'],
     ['Música en vivo', '🎶 Música en vivo'],
-    ['Espacio para niños', '🧸 Para niños'],
+    ['Para niños', '🧸 Para niños'],
     ['Baño / WC', '🚻 Baño'],
     ['Calefacción', '🔥 Calefacción'],
     ['Aire Acondicionado / Ventilación', '❄️ Aire acondicionado'],
@@ -37,7 +39,9 @@ export function activeFilterCount(f = state.filtros) {
 
 function tieneCaracteristica(local, nombre) {
     // "Mascotas" corresponde a "Ingreso de Mascotas"
-    return (local.caracteristicas || []).some(c => c === nombre || c.startsWith(nombre) || c.endsWith(nombre));
+    // "Para niños" agrupa las etiquetas para familias: con cualquiera de ellas el local aparece
+    const nombres = GRUPOS[nombre] || [nombre];
+    return (local.caracteristicas || []).some(c => nombres.some(n => c === n || c.startsWith(n) || c.endsWith(n)));
 }
 
 export function cumpleFiltros(local, f = state.filtros) {
