@@ -20,7 +20,8 @@ const FEATURE_ICONS = {
     'Venta de Alcohol': '🍺', 'Ingreso de Mascotas': '🐾',
     'Apto para Fumadores': '🚬', 'Acepta Edenred / BAES': '💳', 'Acceso Discapacitados': '♿',
     'Estacionamiento': '🚗', 'Bicicletero': '🚲', 'Baño / WC': '🚻', 'WiFi Disponible': '📶', 'Terraza': '🪑',
-    'Delivery propio': '🛵', 'Delivery por apps': '📲', 'Solo mayores de 18': '🔞', 'Espacio para niños': '🧸',
+    'Delivery propio': '🛵', 'Delivery por apps': '📲', 'Solo mayores de 18': '🔞',
+    'Silla de bebé': '👶', 'Juegos para niños': '🧸', 'Menú infantil': '🍟',
     'Música en vivo': '🎶', 'Enchufes para cargar': '🔌', 'Acepta reservas': '📅', 'Arriendo para eventos': '🎉', 'Segundo piso': '🪜',
     'Barra de tragos': '🍸', 'Pedidos para llevar': '🥡', 'Consumo en el local': '🍽️'
 };
